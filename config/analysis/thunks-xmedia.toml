@@ -1,0 +1,58 @@
+# Function-pointer targets in XMediaFacade_default.xex (title update v2 applied) that
+# FH2's .pdata does not list, so codegen merged them into a neighbour or left
+# them out. An indirect call to one stops the game (M3_TRACE
+# indirect.unregistered): the first boot hit 832453C8, a static-initialiser
+# stub in a table of 16-byte stubs that load an object address and branch.
+#
+# Found with Pinyon Shift's tools/find-fh1-missing-thunks.py on the loaded
+# image (base 0x88000000) and this module's generated tree: it collects addresses
+# built by lis/addi pairs in .pdata code and data words pointing into
+# executable sections, follows each one's paths to its returns or tail
+# branches for the size, and lists those the generated table does not
+# register, less the 11 import thunks it also lists (codegen owns those).
+# 15 entries; rerun it after a codegen change and add what it lists.
+
+[functions."88065498"]
+size = 0x18
+
+[functions."88067730"]
+size = 0x08
+
+[functions."88067750"]
+size = 0x08
+
+[functions."880678D8"]
+size = 0x20
+
+[functions."880678F8"]
+size = 0x20
+
+[functions."88067918"]
+size = 0x20
+
+[functions."88067938"]
+size = 0x20
+
+[functions."88067958"]
+size = 0x20
+
+[functions."88067978"]
+size = 0x20
+
+[functions."88067998"]
+size = 0x20
+
+[functions."880679B8"]
+size = 0x20
+
+[functions."880679D8"]
+size = 0x20
+
+[functions."880679F8"]
+size = 0x20
+
+[functions."88069278"]
+size = 0x10
+
+[functions."880CD528"]
+size = 0x08

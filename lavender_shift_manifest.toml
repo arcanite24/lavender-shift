@@ -1,0 +1,28 @@
+# Lavender Shift codegen manifest: Forza Horizon 2 (USA disc, media 7C7779D1)
+# with title update v2 applied while loading. tools/lavender_setup.py puts the
+# disc executables beside their .xexp patches in .local/game/codegen, and the
+# generator runs with --xex_apply_patches=true. Game inputs and translated
+# output stay in the ignored .local folder.
+
+[project]
+name = "lavender_shift"
+sdk_version = "0.10.0"
+game_root = ".local/game/codegen"
+
+[entrypoint]
+file_path = ".local/game/codegen/default.xex"
+out_directory_path = ".local/generated/default"
+includes = ["config/analysis/default.toml", "config/analysis/thunks-default.toml"]
+
+# The game loads both facades with XexLoadImage (Kinect video and speech).
+[[modules]]
+guest_path = "XMediaFacade_default.xex"
+file_path = ".local/game/codegen/XMediaFacade_default.xex"
+out_directory_path = ".local/generated/xmedia"
+includes = ["config/analysis/xmedia-facade.toml", "config/analysis/thunks-xmedia.toml"]
+
+[[modules]]
+guest_path = "SpeechFacade_default.xex"
+file_path = ".local/game/codegen/SpeechFacade_default.xex"
+out_directory_path = ".local/generated/speech"
+includes = ["config/analysis/thunks-speech.toml"]

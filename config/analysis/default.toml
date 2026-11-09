@@ -1,0 +1,874 @@
+# Codegen facts for Forza Horizon 2's default.xex with title update v2
+# applied (0.0.2.12). Stage 0 reference build (docs/APPROACH_RESEARCH.md).
+#
+# Every address here was carried from Pinyon Shift's FH1 v4 analysis
+# (horizon1-recomp config/rexglue/analysis-v4/main-xex.toml) through Pinyon's
+# base-to-v4 address mapper (tools/map-fh1-v4-addresses.py) run on the FH1 v4
+# and FH2 v2 images, then checked: the method column says how each one mapped.
+
+# Microsoft CRT non-local jump pair (longjmp exact, setjmp by context).
+setjmp_address = 0x82C059D0
+longjmp_address = 0x82C054A0
+
+# Pinyon's kept, exact codegen options (FH1 reasons hold for FH2: the .text
+# has no overflow-enabled integer instruction and one mtxer, like FH1).
+cr_as_local = true
+ctr_as_local = true
+xer_as_local = true
+interior_resume = false
+direct_calls_bypass_thunk = true
+fold_rodata_loads = true
+host_local_register_saves = true
+host_local_lr = true
+
+# CRT memory functions and XAPI fibers, served by the SDK. The four fiber
+# functions map exactly; SwitchToFiber is, as in FH1, a tail branch to the
+# context switch, here 0x831D9180 (FH1 0x831AF790, mapped by context).
+[rexcrt]
+memcpy = 0x82C00D70
+memmove = 0x82C012E0
+memset = 0x82C02780
+ConvertThreadToFiber = 0x831D7918
+ConvertFiberToThread = 0x831D79A8
+CreateFiber = 0x831D79F8
+DeleteFiber = 0x831D7AD8
+SwitchToFiber = 0x831D7B38
+
+# Function boundaries that PDATA omits. FH1 found these at run time (vtable
+# targets, callback tables, thunks); each one below mapped to FH2 with its
+# last instruction at the same offset. FH1 boundaries that did not map, or
+# whose end moved, are left out until FH2 needs them.
+
+[functions."823F1CC0"]  # FH1 v4 82411C80, context
+size = 0x14
+
+[functions."823F1CD8"]  # FH1 v4 82411C98, context
+size = 0x14
+
+[functions."823F1CF0"]  # FH1 v4 82411CB0, context
+size = 0x18
+
+[functions."823F93F0"]  # FH1 v4 82419168, context
+size = 0x20
+
+[functions."824033F8"]  # FH1 v4 82423110, context
+size = 0x14
+
+[functions."8245F8C8"]  # FH1 v4 8247F7F8, context
+size = 0x1C
+
+[functions."82460CF8"]  # FH1 v4 82480C10, context
+size = 0x1C
+
+[functions."82460E88"]  # FH1 v4 82480DA0, context
+size = 0x1C
+
+[functions."82460EA8"]  # FH1 v4 82480DC0, context
+size = 0x18
+
+[functions."82460EC0"]  # FH1 v4 82480DD8, context
+size = 0x24
+
+[functions."8247F1F0"]  # FH1 v4 8249F1A0, context
+size = 0x1C
+
+[functions."8247F210"]  # FH1 v4 8249F1C0, context
+size = 0x20
+
+[functions."8247FDA8"]  # FH1 v4 8249FD68, context
+size = 0x1C
+
+[functions."8247FDC8"]  # FH1 v4 8249FD88, context
+size = 0x20
+
+[functions."82482270"]  # FH1 v4 824A21E0, context
+size = 0x18
+
+[functions."82489B88"]  # FH1 v4 824A9B10, context
+size = 0x10
+
+[functions."82489B98"]  # FH1 v4 824A9B20, context
+size = 0x18
+
+[functions."82489BB0"]  # FH1 v4 824A9B38, context
+size = 0x18
+
+[functions."82489BC8"]  # FH1 v4 824A9B68, context
+size = 0x14
+
+[functions."824F81E0"]  # FH1 v4 82508890, context
+size = 0x18
+
+[functions."824F8278"]  # FH1 v4 82508928, context
+size = 0x18
+
+[functions."824F8760"]  # FH1 v4 82508DD8, context
+size = 0x14
+
+[functions."824F87E8"]  # FH1 v4 82508E60, context
+size = 0x14
+
+[functions."824F8890"]  # FH1 v4 82508F08, context
+size = 0x14
+
+[functions."824F89C8"]  # FH1 v4 82509020, context
+size = 0x1C
+
+[functions."824F8A98"]  # FH1 v4 825090F0, context
+size = 0x14
+
+[functions."824F8B20"]  # FH1 v4 82509178, context
+size = 0x14
+
+[functions."824F8C40"]  # FH1 v4 82509288, context
+size = 0x1C
+
+[functions."824F8CE8"]  # FH1 v4 82509330, code-ref
+size = 0x14
+
+[functions."824F8DD0"]  # FH1 v4 82509418, code-ref
+size = 0x10
+
+[functions."824F8E10"]  # FH1 v4 82509438, code-ref
+size = 0x18
+
+[functions."824F8EA0"]  # FH1 v4 82509550, context
+size = 0x14
+
+[functions."824F8FC0"]  # FH1 v4 82509670, context
+size = 0x14
+
+[functions."824F9048"]  # FH1 v4 825096F8, context
+size = 0x14
+
+[functions."824F90D0"]  # FH1 v4 82509780, context
+size = 0x14
+
+[functions."824F9478"]  # FH1 v4 82509AB8, context
+size = 0x1C
+
+[functions."824F9518"]  # FH1 v4 825FAD08, context
+size = 0x14
+
+[functions."824F99D8"]  # FH1 v4 82509FB8, code-ref
+size = 0x10
+
+[functions."824F99E8"]  # FH1 v4 82509FC8, shape-context
+size = 0x10
+
+[functions."824F99F8"]  # FH1 v4 82509FD8, shape-context
+size = 0x14
+
+[functions."824F9C00"]  # FH1 v4 8250A1B0, code-ref
+size = 0x14
+
+[functions."824F9D10"]  # FH1 v4 8250A2C0, code-ref
+size = 0x10
+
+[functions."824F9E18"]  # FH1 v4 8250A3C8, context
+size = 0x18
+
+[functions."825F4560"]  # FH1 v4 825F2778, context
+size = 0x14
+
+[functions."825F4608"]  # FH1 v4 825F2820, context
+size = 0x14
+
+[functions."825F4638"]  # FH1 v4 825F2868, context
+size = 0x24
+
+[functions."825F4708"]  # FH1 v4 825F2938, context
+size = 0x18
+
+[functions."825F4878"]  # FH1 v4 825F2AA8, context
+size = 0x14
+
+[functions."825F4970"]  # FH1 v4 825F2BA0, context
+size = 0x14
+
+[functions."825F4A68"]  # FH1 v4 825F2C98, context
+size = 0x14
+
+[functions."825F4BD0"]  # FH1 v4 825F2E00, context
+size = 0x14
+
+[functions."825F4C58"]  # FH1 v4 825F2E88, context
+size = 0x14
+
+[functions."825F4CE0"]  # FH1 v4 825F2F10, context
+size = 0x14
+
+[functions."825F4D68"]  # FH1 v4 825F2F98, context
+size = 0x14
+
+[functions."825F4DF0"]  # FH1 v4 825F3020, context
+size = 0x14
+
+[functions."825F4E78"]  # FH1 v4 825F30A8, context
+size = 0x1C
+
+[functions."825F5018"]  # FH1 v4 825F3238, context
+size = 0x18
+
+[functions."825F50D0"]  # FH1 v4 825F32F0, context
+size = 0x1C
+
+[functions."825F5178"]  # FH1 v4 825F33A8, context
+size = 0x10
+
+[functions."825F6B40"]  # FH1 v4 825F4DB0, context
+size = 0x14
+
+[functions."825F6BF8"]  # FH1 v4 825F4E58, context
+size = 0x18
+
+[functions."825F6C88"]  # FH1 v4 825F4EE8, context
+size = 0x1C
+
+[functions."825F6D98"]  # FH1 v4 825F4FF8, context
+size = 0x14
+
+[functions."825F6E20"]  # FH1 v4 825F5080, context
+size = 0x18
+
+[functions."825F70D0"]  # FH1 v4 825F5330, context
+size = 0x14
+
+[functions."825F7158"]  # FH1 v4 825F53B8, context
+size = 0x18
+
+[functions."825F7308"]  # FH1 v4 825F5568, context
+size = 0x14
+
+[functions."825F7390"]  # FH1 v4 825F55F0, context
+size = 0x14
+
+[functions."825F7418"]  # FH1 v4 825F5678, context
+size = 0x14
+
+[functions."825F74A0"]  # FH1 v4 825F5700, context
+size = 0x14
+
+[functions."825F75B0"]  # FH1 v4 825F5828, context
+size = 0x14
+
+[functions."825F7638"]  # FH1 v4 825F58B0, context
+size = 0x10
+
+[functions."825F7648"]  # FH1 v4 825F58C0, context
+size = 0x10
+
+[functions."825F7658"]  # FH1 v4 825F58D0, context
+size = 0x14
+
+[functions."825F8800"]  # FH1 v4 825F6B30, context
+size = 0x10
+
+[functions."825F96F8"]  # FH1 v4 825F7A28, context
+size = 0x20
+
+[functions."825F97A0"]  # FH1 v4 825F7AD0, context
+size = 0x14
+
+[functions."825F9848"]  # FH1 v4 825F7B78, context
+size = 0x14
+
+[functions."825F98D0"]  # FH1 v4 825F7C00, context
+size = 0x14
+
+[functions."825F9978"]  # FH1 v4 825F7CA8, context
+size = 0x14
+
+[functions."825F9A00"]  # FH1 v4 8271A620, context
+size = 0x10
+
+[functions."825F9A20"]  # FH1 v4 825F7D30, context
+size = 0x18
+
+[functions."825F9B20"]  # FH1 v4 825F7E30, context
+size = 0x1C
+
+[functions."825F9BC0"]  # FH1 v4 825F7ED0, context
+size = 0x14
+
+[functions."825FA578"]  # FH1 v4 825F8888, context
+size = 0x14
+
+[functions."825FA600"]  # FH1 v4 825F8910, context
+size = 0x14
+
+[functions."825FA790"]  # FH1 v4 825F8AA0, context
+size = 0x18
+
+[functions."825FA9A8"]  # FH1 v4 825F8CC0, context
+size = 0x10
+
+[functions."825FA9B8"]  # FH1 v4 825F8CD0, context
+size = 0x18
+
+[functions."825FAA48"]  # FH1 v4 825F8D60, context
+size = 0x18
+
+[functions."825FAB50"]  # FH1 v4 825F8E68, context
+size = 0x14
+
+[functions."825FABD8"]  # FH1 v4 825F8EF0, context
+size = 0x14
+
+[functions."825FAC70"]  # FH1 v4 825F8F78, context
+size = 0x14
+
+[functions."825FACF8"]  # FH1 v4 825F9000, context
+size = 0x20
+
+[functions."825FADA0"]  # FH1 v4 825F90A8, context
+size = 0x20
+
+[functions."825FAE48"]  # FH1 v4 825F9150, context
+size = 0x18
+
+[functions."825FAEE0"]  # FH1 v4 825F91E8, context
+size = 0x18
+
+[functions."825FAF70"]  # FH1 v4 825F9278, context
+size = 0x10
+
+[functions."825FB538"]  # FH1 v4 825F9840, context
+size = 0x1C
+
+[functions."825FB648"]  # FH1 v4 825F9950, context
+size = 0x18
+
+[functions."825FBAC0"]  # FH1 v4 825F9DC8, context
+size = 0x14
+
+[functions."825FBBD0"]  # FH1 v4 825F9EC0, context
+size = 0x10
+
+[functions."825FBBE0"]  # FH1 v4 825F9ED0, context
+size = 0x18
+
+[functions."825FBCE8"]  # FH1 v4 825F9FD8, context
+size = 0x1C
+
+[functions."825FBE08"]  # FH1 v4 825FA0F8, context
+size = 0x14
+
+[functions."825FBE90"]  # FH1 v4 825FA180, context
+size = 0x10
+
+[functions."825FBEA0"]  # FH1 v4 825FA190, context
+size = 0x18
+
+[functions."825FBF30"]  # FH1 v4 825FA220, context
+size = 0x18
+
+[functions."825FC038"]  # FH1 v4 825FA328, context
+size = 0x14
+
+[functions."825FC0C0"]  # FH1 v4 825FA3B0, context
+size = 0x14
+
+[functions."825FC1B8"]  # FH1 v4 825FA4A8, context
+size = 0x20
+
+[functions."825FC260"]  # FH1 v4 825FA550, context
+size = 0x20
+
+[functions."825FC308"]  # FH1 v4 825FA5F8, context
+size = 0x18
+
+[functions."825FC980"]  # FH1 v4 825FAC68, context
+size = 0x1C
+
+[functions."825FCC80"]  # FH1 v4 825FAF80, context
+size = 0x18
+
+[functions."825FD6D8"]  # FH1 v4 825FB9C0, context
+size = 0x18
+
+[functions."825FD770"]  # FH1 v4 825FBA58, context
+size = 0x14
+
+[functions."825FD818"]  # FH1 v4 825FBB00, context
+size = 0x1C
+
+[functions."825FDC98"]  # FH1 v4 825FBF18, context
+size = 0x18
+
+[functions."825FFB30"]  # FH1 v4 825FDDD0, context
+size = 0x18
+
+[functions."825FFBC0"]  # FH1 v4 825F8B30, context
+size = 0x1C
+
+[functions."825FFC80"]  # FH1 v4 825FDEF0, context
+size = 0x14
+
+[functions."825FFD08"]  # FH1 v4 825FDF78, context
+size = 0x14
+
+[functions."825FFD90"]  # FH1 v4 825FE000, context
+size = 0x1C
+
+[functions."825FFE30"]  # FH1 v4 825FE0A0, context
+size = 0x14
+
+[functions."825FFEB8"]  # FH1 v4 825FE138, context
+size = 0x1C
+
+[functions."825FFF58"]  # FH1 v4 825FE1D8, context
+size = 0x20
+
+[functions."82600000"]  # FH1 v4 825FE280, context
+size = 0x18
+
+[functions."82600090"]  # FH1 v4 825FE310, context
+size = 0x1C
+
+[functions."82600130"]  # FH1 v4 825FE3B0, context
+size = 0x20
+
+[functions."826002B0"]  # FH1 v4 825FE540, context
+size = 0x10
+
+[functions."826002C0"]  # FH1 v4 825FE550, context
+size = 0x10
+
+[functions."82625318"]  # FH1 v4 8261F7C0, context
+size = 0x14
+
+[functions."82625498"]  # FH1 v4 8261F940, context
+size = 0x1C
+
+[functions."827BCDA8"]  # FH1 v4 82712FD0, context
+size = 0x10
+
+[functions."827BEB10"]  # FH1 v4 82714DA0, code-ref
+size = 0x10
+
+[functions."827BFA60"]  # FH1 v4 82715D08, context
+size = 0x10
+
+[functions."827C4B20"]  # FH1 v4 8271A498, context
+size = 0x14
+
+[functions."827C4BA8"]  # FH1 v4 8271A520, context
+size = 0x18
+
+[functions."827C4C38"]  # FH1 v4 82508AB8, context
+size = 0x14
+
+[functions."827C4CC0"]  # FH1 v4 82C783E8, context
+size = 0x14
+
+[functions."827C4D48"]  # FH1 v4 82C78470, context
+size = 0x14
+
+[functions."827C4DD0"]  # FH1 v4 82C784F8, context
+size = 0x14
+
+[functions."827C4E58"]  # FH1 v4 8271A790, context
+size = 0x14
+
+[functions."82B502D8"]  # FH1 v4 82A87FB8, context
+size = 0x30
+
+[functions."82C9F198"]  # FH1 v4 82BD94C0, context
+size = 0x10
+
+[functions."82C9F1B0"]  # FH1 v4 82BD94D8, context
+size = 0x8
+
+[functions."82C9F1B8"]  # FH1 v4 82BD94E0, context
+size = 0x8
+
+[functions."82C9F1C0"]  # FH1 v4 82BD94E8, context
+size = 0x8
+
+[functions."82C9F1C8"]  # FH1 v4 82BD94F0, context
+size = 0x8
+
+[functions."82C9F1D0"]  # FH1 v4 82BD94F8, context
+size = 0xC
+
+[functions."82CBFEB8"]  # FH1 v4 82BFA1A0, context
+size = 0x8
+
+[functions."82CBFEC0"]  # FH1 v4 82BFA1A8, context
+size = 0x8
+
+[functions."82CBFEC8"]  # FH1 v4 82BFA1B0, context
+size = 0x8
+
+[functions."82CBFED0"]  # FH1 v4 82BFA1B8, context
+size = 0x14
+
+[functions."82D2C4A0"]  # FH1 v4 825FBFA8, context
+size = 0x14
+
+[functions."82D2C628"]  # FH1 v4 82C64AB0, context
+size = 0x14
+
+[functions."82D32690"]  # FH1 v4 82C6AAE8, context
+size = 0x14
+
+[functions."82D40080"]  # FH1 v4 82C78250, context
+size = 0x14
+
+[functions."82D40108"]  # FH1 v4 82C782D8, context
+size = 0x14
+
+[functions."82D40350"]  # FH1 v4 82C78580, context
+size = 0x14
+
+[functions."82D403D8"]  # FH1 v4 82C78608, context
+size = 0x14
+
+[functions."82D40460"]  # FH1 v4 82C78690, context
+size = 0x14
+
+[functions."82D406E8"]  # FH1 v4 82C78918, context
+size = 0x14
+
+[functions."82DCF8A8"]  # FH1 v4 82D08578, context
+size = 0x20
+
+[functions."82DCF8C8"]  # FH1 v4 82D08598, context
+size = 0x20
+
+[functions."82DCF8E8"]  # FH1 v4 82D085B8, context
+size = 0x2C
+
+[functions."82E83BE0"]  # FH1 v4 82DBA408, context
+size = 0x8
+
+[functions."82F453D0"]  # FH1 v4 82E7A7E0, context
+size = 0x20
+
+[functions."82F457C8"]  # FH1 v4 82E7ABD8, context
+size = 0x14
+
+[functions."82F458C0"]  # FH1 v4 82E7ACD0, context
+size = 0x18
+
+[functions."82F459C0"]  # FH1 v4 82E7ADE0, context
+size = 0x14
+
+[functions."82F45AD8"]  # FH1 v4 82E7E748, context
+size = 0x14
+
+[functions."82F45B60"]  # FH1 v4 82E7AF40, context
+size = 0x14
+
+[functions."82F45D38"]  # FH1 v4 82E7B148, context
+size = 0x14
+
+[functions."82F45DE0"]  # FH1 v4 82E7B1F0, context
+size = 0x14
+
+[functions."82F45E88"]  # FH1 v4 82E7B298, context
+size = 0x20
+
+[functions."82F45F58"]  # FH1 v4 82E7B368, context
+size = 0x14
+
+[functions."82F46050"]  # FH1 v4 82E7B460, context
+size = 0x14
+
+[functions."82F460D8"]  # FH1 v4 82E7B4E8, context
+size = 0x14
+
+[functions."82F46160"]  # FH1 v4 82E7B570, context
+size = 0x14
+
+[functions."82F461E8"]  # FH1 v4 82E7B5F8, context
+size = 0x14
+
+[functions."82F46270"]  # FH1 v4 82E7B680, context
+size = 0x14
+
+[functions."82F46368"]  # FH1 v4 82E7B778, context
+size = 0x14
+
+[functions."82F46588"]  # FH1 v4 82E7B998, context
+size = 0x18
+
+[functions."82F46640"]  # FH1 v4 82E7BA50, code-ref
+size = 0x14
+
+[functions."82F466C8"]  # FH1 v4 82E7BB60, context
+size = 0x14
+
+[functions."82F46970"]  # FH1 v4 82E7BD98, context
+size = 0x14
+
+[functions."82F48898"]  # FH1 v4 82E7DB68, context
+size = 0x18
+
+[functions."82F48AA0"]  # FH1 v4 82E7DD80, context
+size = 0x1C
+
+[functions."82F48AC0"]  # FH1 v4 82E7DDA0, context
+size = 0x18
+
+[functions."82F48AD8"]  # FH1 v4 82E7DDB8, context
+size = 0x14
+
+[functions."82F48AF0"]  # FH1 v4 82E7DDD0, context
+size = 0x14
+
+[functions."82F48C28"]  # FH1 v4 82E7DF08, shape-context
+size = 0x1C
+
+[functions."82F48C48"]  # FH1 v4 82E7DF28, code-ref
+size = 0x14
+
+[functions."82F48C80"]  # FH1 v4 82E7DF60, shape-context
+size = 0x1C
+
+[functions."82F48CA0"]  # FH1 v4 82E7DF80, code-ref
+size = 0x14
+
+[functions."82F48CD8"]  # FH1 v4 82E7DFB8, shape-context
+size = 0x14
+
+[functions."82F48E30"]  # FH1 v4 82E7E110, code-ref
+size = 0x18
+
+[functions."82F48EF8"]  # FH1 v4 82E7E1D8, code-ref
+size = 0x20
+
+[functions."82F48F18"]  # FH1 v4 82E7E1F8, code-ref
+size = 0x14
+
+[functions."82F48F30"]  # FH1 v4 82E7E210, code-ref
+size = 0x18
+
+[functions."82F48F48"]  # FH1 v4 82E7E228, code-ref
+size = 0x18
+
+[functions."82F48F60"]  # FH1 v4 82E7E240, code-ref
+size = 0x18
+
+[functions."82F48F78"]  # FH1 v4 82E7E258, code-ref
+size = 0x2C
+
+[functions."82F48FA8"]  # FH1 v4 82E7E288, code-ref
+size = 0x18
+
+[functions."82F49020"]  # FH1 v4 82E7E300, shape-context
+size = 0x10
+
+[functions."82F49030"]  # FH1 v4 82E7E330, shape-context
+size = 0x10
+
+[functions."82F49040"]  # FH1 v4 82E7E340, code-ref
+size = 0x28
+
+[functions."82F49068"]  # FH1 v4 82E7E368, code-ref
+size = 0x14
+
+[functions."82F49080"]  # FH1 v4 82E7E380, code-ref
+size = 0x14
+
+[functions."82F49098"]  # FH1 v4 82E7E398, code-ref
+size = 0x18
+
+[functions."82F490C8"]  # FH1 v4 82E7E3C8, code-ref
+size = 0x14
+
+[functions."82F490E0"]  # FH1 v4 82E7E3E0, code-ref
+size = 0x14
+
+[functions."82F490F8"]  # FH1 v4 82E7E3F8, code-ref
+size = 0x10
+
+[functions."82F49108"]  # FH1 v4 82E7E408, code-ref
+size = 0x20
+
+[functions."82F49128"]  # FH1 v4 82E7E428, code-ref
+size = 0x14
+
+[functions."82F49140"]  # FH1 v4 82E7E440, code-ref
+size = 0x14
+
+[functions."82F49268"]  # FH1 v4 82E7E568, code-ref
+size = 0x20
+
+[functions."82F49288"]  # FH1 v4 82E7E588, code-ref
+size = 0x14
+
+[functions."82F492A0"]  # FH1 v4 82E7E5A0, code-ref
+size = 0x14
+
+[functions."82F492B8"]  # FH1 v4 82E7E5B8, code-ref
+size = 0x14
+
+[functions."82F492D0"]  # FH1 v4 82E7E5D0, code-ref
+size = 0x14
+
+[functions."82F49300"]  # FH1 v4 82E7E600, code-ref
+size = 0x14
+
+[functions."82F49338"]  # FH1 v4 82E7E648, code-ref
+size = 0x20
+
+[functions."82F49358"]  # FH1 v4 82E7E668, code-ref
+size = 0x1C
+
+[functions."82F49540"]  # FH1 v4 82E7E868, context
+size = 0x18
+
+[functions."82F49680"]  # FH1 v4 82E7E9A8, context
+size = 0x18
+
+[functions."82F49718"]  # FH1 v4 82E7EA40, context
+size = 0x1C
+
+[functions."82F49960"]  # FH1 v4 82E7EC98, context
+size = 0x10
+
+[functions."82F49970"]  # FH1 v4 82E7ECA8, context
+size = 0x18
+
+[functions."82F49A10"]  # FH1 v4 82E7ED48, context
+size = 0x14
+
+[functions."82F49A28"]  # FH1 v4 82E7ED60, context
+size = 0x18
+
+[functions."82F49A40"]  # FH1 v4 82E7ED78, context
+size = 0x14
+
+[functions."82F49A58"]  # FH1 v4 82E7ED90, context
+size = 0x18
+
+[functions."82F49A70"]  # FH1 v4 82E7EDA8, context
+size = 0x18
+
+[functions."82F49A88"]  # FH1 v4 82E7EDC0, context
+size = 0x14
+
+[functions."82F49AA0"]  # FH1 v4 82E7EDD8, context
+size = 0x18
+
+[functions."82F49AB8"]  # FH1 v4 82E7EDF0, context
+size = 0x14
+
+[functions."82F49BE8"]  # FH1 v4 82E7EF20, context
+size = 0x14
+
+[functions."82F49C00"]  # FH1 v4 82E7EF38, context
+size = 0x1C
+
+[functions."82F49C20"]  # FH1 v4 82E7EF58, context
+size = 0x18
+
+[functions."82F49C38"]  # FH1 v4 82E7EF70, context
+size = 0x14
+
+[functions."82F49CB0"]  # FH1 v4 82E7EFE8, context
+size = 0x14
+
+[functions."82F4A010"]  # FH1 v4 82E7F348, context
+size = 0x14
+
+[functions."82F4A098"]  # FH1 v4 82E7AFC8, context
+size = 0x14
+
+[functions."82F4A120"]  # FH1 v4 82E7B050, context
+size = 0x14
+
+[functions."82F4A238"]  # FH1 v4 82E7F540, context
+size = 0x14
+
+[functions."82FBEA70"]  # FH1 v4 82EF3BF0, context
+size = 0x10
+
+[functions."83017F80"]  # FH1 v4 82FEF0E8, context
+size = 0x14
+
+[functions."8303A410"]  # FH1 v4 83011408, context
+size = 0x8
+
+[functions."83040968"]  # FH1 v4 83017920, context
+size = 0x38
+
+[functions."83046F08"]  # FH1 v4 8301DE38, context
+size = 0x90
+
+[functions."830603F8"]  # FH1 v4 83037300, context
+size = 0x88
+
+[functions."83060510"]  # FH1 v4 83037418, context
+size = 0x88
+
+[functions."83199A80"]  # FH1 v4 831712F8, context
+size = 0x8
+
+[functions."83199A88"]  # FH1 v4 83171300, context
+size = 0x8
+
+[functions."83199A98"]  # FH1 v4 83171310, context
+size = 0x8
+
+[functions."83199AA0"]  # FH1 v4 83171318, context
+size = 0x8
+
+[functions."83199AB0"]  # FH1 v4 83171328, context
+size = 0x8
+
+[functions."83199AB8"]  # FH1 v4 83171330, context
+size = 0x8
+
+[functions."83199B18"]  # FH1 v4 83171390, context
+size = 0x8
+
+[functions."8319EC50"]  # FH1 v4 831764E8, context
+size = 0x8
+
+[functions."8319EC58"]  # FH1 v4 831764F0, neighbor
+size = 0x8
+
+[functions."8319EC60"]  # FH1 v4 831764F8, context
+size = 0x8
+
+[functions."8319EC68"]  # FH1 v4 83176500, context
+size = 0xF4
+
+[functions."8319FF30"]  # FH1 v4 83177718, context
+size = 0x8
+
+[functions."8319FF40"]  # FH1 v4 83177728, context
+size = 0x8
+
+[functions."8319FF50"]  # FH1 v4 83177738, context
+size = 0x8
+
+[functions."8319FF58"]  # FH1 v4 83177740, context
+size = 0x8
+
+[functions."8319FF60"]  # FH1 v4 83177748, context
+size = 0x8
+
+[functions."8319FF68"]  # FH1 v4 83177750, context
+size = 0x8
+
+[functions."8319FF70"]  # FH1 v4 83177758, context
+size = 0x8
+
+[functions."8319FF78"]  # FH1 v4 83177760, context
+size = 0xFC
+
+[functions."831A0658"]  # FH1 v4 83177E40, context
+size = 0x18
+
+[functions."831D9180"]  # FH1 v4 831AF790, context
+size = 0x40C
+
+[functions."831E9558"]  # FH1 v4 831BFE88, context
+size = 0x8
+
+[functions."8322B8C0"]  # FH1 v4 83202270, context
+size = 0x28

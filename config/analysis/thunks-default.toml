@@ -1,0 +1,482 @@
+# Function-pointer targets in default.xex (title update v2 applied) that
+# FH2's .pdata does not list, so codegen merged them into a neighbour or left
+# them out. An indirect call to one stops the game (M3_TRACE
+# indirect.unregistered): the first boot hit 832453C8, a static-initialiser
+# stub in a table of 16-byte stubs that load an object address and branch.
+#
+# Found with Pinyon Shift's tools/find-fh1-missing-thunks.py on the loaded
+# image (base 0x82000000) and this module's generated tree: it collects addresses
+# built by lis/addi pairs in .pdata code and data words pointing into
+# executable sections, follows each one's paths to its returns or tail
+# branches for the size, and lists those the generated table does not
+# register, less the 16 import thunks it also lists (codegen owns those).
+# 155 entries; rerun it (tools/find_missing_thunks.py) after a codegen change
+# and add what it lists.
+
+[functions."823F1D08"]
+size = 0x10
+
+[functions."8245FB00"]
+size = 0x18
+
+[functions."824B0018"]
+size = 0x1FC
+
+[functions."824F8720"]
+size = 0x10
+
+[functions."824F8730"]
+size = 0x10
+
+[functions."824F8740"]
+size = 0x10
+
+[functions."824F8BB8"]
+size = 0x14
+
+[functions."824F8DA0"]
+size = 0x10
+
+[functions."824F8DB0"]
+size = 0x10
+
+[functions."824F8DC0"]
+size = 0x10
+
+[functions."824F8DE0"]
+size = 0x10
+
+[functions."824F8DF0"]
+size = 0x10
+
+[functions."824F8E00"]
+size = 0x10
+
+[functions."824F9638"]
+size = 0x14
+
+[functions."824F96D0"]
+size = 0x14
+
+[functions."824F9768"]
+size = 0x14
+
+[functions."824F9800"]
+size = 0x14
+
+[functions."824F99A8"]
+size = 0x10
+
+[functions."824F99B8"]
+size = 0x10
+
+[functions."824F9A90"]
+size = 0x18
+
+[functions."824F9B30"]
+size = 0x10
+
+[functions."824F9B40"]
+size = 0x24
+
+[functions."824FDC18"]
+size = 0x10
+
+[functions."824FDC28"]
+size = 0x10
+
+[functions."824FDC38"]
+size = 0x10
+
+[functions."824FDC48"]
+size = 0x10
+
+[functions."824FDC58"]
+size = 0x10
+
+[functions."824FDC68"]
+size = 0x10
+
+[functions."824FDC78"]
+size = 0x10
+
+[functions."824FDC88"]
+size = 0x10
+
+[functions."824FDC98"]
+size = 0x10
+
+[functions."824FDCA8"]
+size = 0x10
+
+[functions."824FDCB8"]
+size = 0x10
+
+[functions."824FDCE0"]
+size = 0x10
+
+[functions."825F9A10"]
+size = 0x10
+
+[functions."827BEB20"]
+size = 0x28
+
+[functions."82818ED0"]
+size = 0x04
+
+[functions."82838018"]
+size = 0x0C
+
+[functions."8291EE48"]
+size = 0x24
+
+[functions."82921510"]
+size = 0x10
+
+[functions."82921520"]
+size = 0x10
+
+[functions."82B3AA08"]
+size = 0x08
+
+[functions."82B3AB38"]
+size = 0x04
+
+[functions."82B440C8"]
+size = 0x14
+
+[functions."82B47DE0"]
+size = 0x1C
+
+[functions."82B4DEF8"]
+size = 0x78
+
+[functions."82B5ACC8"]
+size = 0x30
+
+[functions."82C1A518"]
+size = 0x08
+
+[functions."82C1A520"]
+size = 0x08
+
+[functions."82C1A528"]
+size = 0x08
+
+[functions."82C1A7B0"]
+size = 0x48
+
+[functions."82C1CAC0"]
+size = 0x08
+
+[functions."82C1CAC8"]
+size = 0x08
+
+[functions."82C1CAD0"]
+size = 0x08
+
+[functions."82C1D5C8"]
+size = 0x08
+
+[functions."82C1D5D0"]
+size = 0x08
+
+[functions."82C1D5D8"]
+size = 0x08
+
+[functions."82C2E430"]
+size = 0x48
+
+[functions."82C30D18"]
+size = 0x08
+
+[functions."82C30D20"]
+size = 0x08
+
+[functions."82C30D28"]
+size = 0x08
+
+[functions."82EDAB98"]
+size = 0x2C
+
+[functions."82F490B0"]
+size = 0x14
+
+[functions."8300A448"]
+size = 0x1C
+
+[functions."8300FC20"]
+size = 0x20
+
+[functions."8300FC40"]
+size = 0x0C
+
+[functions."83051C38"]
+size = 0x20
+
+[functions."8305CF44"]
+size = 0x10
+
+[functions."8313B810"]
+size = 0x0C
+
+[functions."83199A90"]
+size = 0x08
+
+[functions."83199AA8"]
+size = 0x08
+
+[functions."83199AC0"]
+size = 0x58
+
+[functions."8319FF38"]
+size = 0x08
+
+[functions."831A4770"]
+size = 0x34
+
+[functions."831B1D28"]
+size = 0x08
+
+[functions."831B1D38"]
+size = 0x08
+
+[functions."831B3450"]
+size = 0x08
+
+[functions."831CA2A8"]
+size = 0x18
+
+[functions."831EAF58"]
+size = 0x08
+
+[functions."831EAF60"]
+size = 0x08
+
+[functions."831EAF68"]
+size = 0x08
+
+[functions."831EAF70"]
+size = 0x08
+
+[functions."831EAF78"]
+size = 0x08
+
+[functions."831ECAA8"]
+size = 0x08
+
+[functions."831ECAB0"]
+size = 0x24
+
+[functions."8322D750"]
+size = 0x2C
+
+[functions."83230B00"]
+size = 0x04
+
+[functions."83238D60"]
+size = 0x08
+
+[functions."83238D68"]
+size = 0x08
+
+[functions."83238D70"]
+size = 0x08
+
+[functions."83238D78"]
+size = 0x08
+
+[functions."83238D80"]
+size = 0x08
+
+[functions."83238D88"]
+size = 0x08
+
+[functions."83238D90"]
+size = 0x08
+
+[functions."83238D98"]
+size = 0x08
+
+[functions."83238DA0"]
+size = 0x08
+
+[functions."83238DA8"]
+size = 0x08
+
+[functions."83238DB0"]
+size = 0x08
+
+[functions."83238DB8"]
+size = 0x08
+
+[functions."83238DC0"]
+size = 0x08
+
+[functions."83238DC8"]
+size = 0x08
+
+[functions."83238DD0"]
+size = 0x08
+
+[functions."83239BC8"]
+size = 0x08
+
+[functions."8323C838"]
+size = 0x08
+
+[functions."8323C840"]
+size = 0x08
+
+[functions."8323C848"]
+size = 0x08
+
+[functions."8323C850"]
+size = 0x24
+
+[functions."8323C8D0"]
+size = 0x08
+
+[functions."8323C8D8"]
+size = 0x08
+
+[functions."8323C8E0"]
+size = 0x08
+
+[functions."8323C8E8"]
+size = 0x24
+
+[functions."83241190"]
+size = 0x10
+
+[functions."832411A0"]
+size = 0x10
+
+[functions."832411F0"]
+size = 0x1C
+
+[functions."832413C8"]
+size = 0x04
+
+[functions."832413D8"]
+size = 0x04
+
+[functions."832413F0"]
+size = 0x04
+
+[functions."83241430"]
+size = 0x08
+
+[functions."83241438"]
+size = 0x20
+
+[functions."83241458"]
+size = 0x08
+
+[functions."83241460"]
+size = 0x08
+
+[functions."83241468"]
+size = 0x18
+
+[functions."832453C8"]
+size = 0x10
+
+[functions."832453E8"]
+size = 0x10
+
+[functions."832453F8"]
+size = 0x10
+
+[functions."83245408"]
+size = 0x10
+
+[functions."83245418"]
+size = 0x10
+
+[functions."83245428"]
+size = 0x1C
+
+[functions."832529A0"]
+size = 0x10
+
+[functions."832529C0"]
+size = 0x10
+
+[functions."832529D0"]
+size = 0x10
+
+[functions."832529E0"]
+size = 0x10
+
+[functions."832529F0"]
+size = 0x10
+
+[functions."83252A00"]
+size = 0x1C
+
+[functions."832536D0"]
+size = 0x10
+
+[functions."832536F0"]
+size = 0x10
+
+[functions."83253700"]
+size = 0x10
+
+[functions."83253710"]
+size = 0x10
+
+[functions."83253720"]
+size = 0x10
+
+[functions."83253730"]
+size = 0x1C
+
+[functions."83261650"]
+size = 0x10
+
+[functions."83261670"]
+size = 0x10
+
+[functions."83261680"]
+size = 0x10
+
+[functions."83261690"]
+size = 0x10
+
+[functions."832616A0"]
+size = 0x10
+
+[functions."832616B0"]
+size = 0x1C
+
+[functions."83271510"]
+size = 0x10
+
+[functions."83271530"]
+size = 0x10
+
+[functions."83271540"]
+size = 0x10
+
+[functions."83271550"]
+size = 0x10
+
+[functions."83271560"]
+size = 0x10
+
+[functions."83271570"]
+size = 0x1C
+
+# Adjustor thunks (this -= 4, then a branch forward to the real method) that
+# Pinyon's finder rejected for branching into a nearby .pdata function; the
+# second boot stopped on 831B1760 (a vtable slot 1 call from 831A1450).
+[functions."8319FF48"]
+size = 0x08
+
+[functions."831B1760"]
+size = 0x08
+
+[functions."831ECC78"]
+size = 0x08

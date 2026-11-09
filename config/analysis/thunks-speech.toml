@@ -1,0 +1,250 @@
+# Function-pointer targets in SpeechFacade_default.xex (title update v2 applied) that
+# FH2's .pdata does not list, so codegen merged them into a neighbour or left
+# them out. An indirect call to one stops the game (M3_TRACE
+# indirect.unregistered): the first boot hit 832453C8, a static-initialiser
+# stub in a table of 16-byte stubs that load an object address and branch.
+#
+# Found with Pinyon Shift's tools/find-fh1-missing-thunks.py on the loaded
+# image (base 0x89000000) and this module's generated tree: it collects addresses
+# built by lis/addi pairs in .pdata code and data words pointing into
+# executable sections, follows each one's paths to its returns or tail
+# branches for the size, and lists those the generated table does not
+# register, less the 11 import thunks it also lists (codegen owns those).
+# 79 entries; rerun it after a codegen change and add what it lists.
+
+[functions."890B2F58"]
+size = 0x08
+
+[functions."890B2F60"]
+size = 0x08
+
+[functions."890B2F68"]
+size = 0x08
+
+[functions."890B2F78"]
+size = 0x08
+
+[functions."890B2F80"]
+size = 0x08
+
+[functions."890B2F88"]
+size = 0x08
+
+[functions."890B2F90"]
+size = 0x08
+
+[functions."890B2FA0"]
+size = 0x08
+
+[functions."890B2FA8"]
+size = 0x08
+
+[functions."890B2FB0"]
+size = 0x08
+
+[functions."890B2FB8"]
+size = 0x08
+
+[functions."890B2FC8"]
+size = 0x08
+
+[functions."890B2FD8"]
+size = 0x08
+
+[functions."890B2FE0"]
+size = 0x08
+
+[functions."890B4170"]
+size = 0x08
+
+[functions."890B4178"]
+size = 0x08
+
+[functions."890B4180"]
+size = 0x08
+
+[functions."890B7E20"]
+size = 0x08
+
+[functions."890B7E28"]
+size = 0x08
+
+[functions."890B7E30"]
+size = 0x08
+
+[functions."890B8960"]
+size = 0x08
+
+[functions."890BAA68"]
+size = 0x08
+
+[functions."890BAAB8"]
+size = 0x08
+
+[functions."890BAAC0"]
+size = 0x08
+
+[functions."890BB048"]
+size = 0x08
+
+[functions."890BB050"]
+size = 0x10
+
+[functions."890BB850"]
+size = 0x08
+
+[functions."890BC018"]
+size = 0x08
+
+[functions."890BC020"]
+size = 0x08
+
+[functions."890BC028"]
+size = 0x08
+
+[functions."890BC030"]
+size = 0x08
+
+[functions."890BC038"]
+size = 0x08
+
+[functions."890BC040"]
+size = 0x08
+
+[functions."890BC050"]
+size = 0x08
+
+[functions."890BC060"]
+size = 0x08
+
+[functions."890BC4F8"]
+size = 0x08
+
+[functions."890BC500"]
+size = 0x08
+
+[functions."890BC508"]
+size = 0x08
+
+[functions."890C30E8"]
+size = 0x08
+
+[functions."890C60F8"]
+size = 0x18
+
+[functions."890C6110"]
+size = 0x18
+
+[functions."890C6128"]
+size = 0x30
+
+[functions."890CE550"]
+size = 0x10
+
+[functions."890E3608"]
+size = 0x28
+
+[functions."890E3CD0"]
+size = 0x08
+
+[functions."890E3CD8"]
+size = 0x08
+
+[functions."890E3CE0"]
+size = 0x08
+
+[functions."890E3CE8"]
+size = 0x08
+
+[functions."890E3CF0"]
+size = 0x08
+
+[functions."890E3CF8"]
+size = 0x08
+
+[functions."890E3D00"]
+size = 0x08
+
+[functions."890E3D08"]
+size = 0x08
+
+[functions."890E3D10"]
+size = 0x08
+
+[functions."890E3DE0"]
+size = 0x08
+
+[functions."890E3DE8"]
+size = 0x08
+
+[functions."890E3DF0"]
+size = 0x08
+
+[functions."890E3DF8"]
+size = 0x08
+
+[functions."890E3E00"]
+size = 0x08
+
+[functions."890E3E08"]
+size = 0x08
+
+[functions."890F2A50"]
+size = 0x08
+
+[functions."890F8FF0"]
+size = 0x0C
+
+[functions."891255D0"]
+size = 0x4C
+
+[functions."8912B4C8"]
+size = 0x08
+
+[functions."8912B4D0"]
+size = 0x08
+
+[functions."8912B4E0"]
+size = 0x08
+
+[functions."8912B4F8"]
+size = 0x08
+
+[functions."8912B508"]
+size = 0x08
+
+[functions."8912B518"]
+size = 0x08
+
+[functions."8912B520"]
+size = 0x08
+
+[functions."8912B528"]
+size = 0x08
+
+[functions."8912B530"]
+size = 0x08
+
+[functions."8912B6E0"]
+size = 0x08
+
+[functions."8912C478"]
+size = 0x08
+
+[functions."8917B738"]
+size = 0x0C
+
+[functions."8919F700"]
+size = 0x18
+
+[functions."8919F718"]
+size = 0x18
+
+[functions."8919F730"]
+size = 0x0C
+
+[functions."891A4A50"]
+size = 0x10
+
+[functions."891A5988"]
+size = 0x28

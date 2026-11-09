@@ -1,0 +1,7 @@
+# The player's game files, translated code, toolchain links and logs.
+.local/
+# Build trees.
+out/
+# Codegen rewrites its CMake template here on every run; the build uses the
+# edited copy in cmake/rexglue.cmake.
+/generated/

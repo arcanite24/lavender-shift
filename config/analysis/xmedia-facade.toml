@@ -1,0 +1,9 @@
+# XMediaFacade_default.xex (title update v2 applied). The same two boundaries
+# Pinyon Shift declares for FH1's facade, at the same addresses with the same
+# bytes in FH2's image: a final virtual-call thunk that PDATA leaves out, and
+# the 16-byte slot the runtime reaches right after the facade registers.
+[functions."88055B80"]
+size = 0x10
+
+[functions."882435D8"]
+size = 0x10
