@@ -1,0 +1,60 @@
+# Threads: FH2 simulation step, GPU waits and pacing (TU v2).
+
+[[finding]]
+group = """Simulation"""
+name = """simulation step delta"""
+v2 = """0x823FDEF4"""
+fh1_v4 = """0x8241DC44"""
+what = """Each simulation step stores its delta in seconds (f31) at owner+448. At the default 60 frames a second the game ran 60.00 steps a second and simulated 1.000 s per real second over 45 s of driving and menus, so FH2 keeps real time at 60."""
+how = """Mapper (aligned), identical store; hook feeding the SDK's simulation counters (perf CSV)."""
+confidence = """confirmed"""
+source = """src/simulation_hooks.cpp; docs/STAGE0.md"""
+
+[[finding]]
+group = """GPU waits"""
+name = """ring-room and fence wait poll"""
+v2 = """sub_82B72EA8 (base disc sub_82B72A90)"""
+fh1_v4 = """sub_82AAD418 (Pinyon's GPU-fence predicate)"""
+what = """The D3D layer's poll while it waits for ring space or a fence: it spins, re-reads the read pointer the CP writes back (device +0x2B10) and gives up on device loss or its hang check. Blocking it until the next GPU write saved 0.85-0.9 of a core."""
+how = """fh2-recompiled's base-disc hook mapped by Pinyon's base → v2 mapper; later the FH1 v4 → v2 mapper put Pinyon's fence predicate on the same function (exact)."""
+confidence = """confirmed"""
+source = """src/ring_wait.cpp; docs/STAGE0.md Ring-room wait"""
+
+[[finding]]
+group = """Pacing"""
+name = """catch-up frames after one vblank"""
+what = """FH2 renders a frame every two 120 Hz guest vblanks, and after a late frame renders the next after one vblank to catch up. With presentation on the host's own 60 Hz clock, that showed as about 8.4 repeated and 9.0 dropped frames per second in free roam; presenting each frame once by vsync removes it."""
+how = """Perf CSV duplicate and dropped presents, paired within 3 frames in 88 % of cases; A/B of presentation modes on the free-roam route."""
+confidence = """confirmed"""
+source = """docs/STAGE0.md Frame pacing"""
+
+[[finding]]
+group = """GPU waits"""
+name = """render job queue producer wait"""
+v2 = """0x82405248"""
+fh1_v4 = """0x82424FB0"""
+what = """Before each yield of the render job queue's producer wait (counter at r1+84, 1000 down to 0, then it posts anyway). On FH1 a host yield returning at once let a slow GPU frame overrun the render thread's slots and crash or hang; Lavender carries Pinyon's fix (sleep 50 us and hold the counter, for at most 2 s)."""
+how = """Mapper (exact), identical instructions."""
+confidence = """probable"""
+note = """FH2 has not been seen to hit the FH1 crash; the fix is kept because the wait is the same code."""
+source = """src/simulation_hooks.cpp LavenderThrottleRenderJobs"""
+
+[[finding]]
+group = """Pacing"""
+name = """swap interrupt late-swap test"""
+v2 = """0x82B71844"""
+fh1_v4 = """0x82AABDB4"""
+what = """The swap interrupt compares how late a swap is (r7, percent of a display period) with its threshold (20 %) to choose the current or next vblank; r8 is the previous swap's target vblank and r10 the current count. Reporting a swap that is already two guest vblanks past the previous target as on time flips it at once."""
+how = """Mapper (exact), identical instructions."""
+confidence = """probable"""
+source = """src/simulation_hooks.cpp LavenderReleaseLateSwap"""
+
+[[finding]]
+group = """Pacing"""
+name = """render thread idle SleepEx"""
+v2 = """0x82618530 (call), 0x82BF0D50 (SleepEx wrapper)"""
+fh1_v4 = """0x82616CD0, 0x82B2A848"""
+what = """The render thread frame's idle path ends in SleepEx(0, TRUE) when the simulation has no new frame for it. In FH1 races it ran back to back (142,622 times in a race on the Odin) and a 200 us host sleep there halved the render thread's CPU. In FH2 it ran 109 times at boot and about 1,900 times while free roam loaded, then not once in three minutes of driving: FH2's render thread does not wait on the simulation in play, so the sleep (kept, 200 us) saves nothing measurable there."""
+how = """Mapper (aligned call site, exact wrapper); the call checked to pass r3=0, r4=1; a call counter in the hook log on the free-roam route."""
+confidence = """confirmed"""
+source = """src/simulation_hooks.cpp LavenderRenderIdleSleep"""

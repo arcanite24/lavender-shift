@@ -1,0 +1,111 @@
+# Systems: FH2 launch options, world, time of day and system UI (TU v2).
+
+[[finding]]
+group = """Launch options"""
+name = """launch-options object"""
+v2 = """0x83427B80 (object), 0x8201703C (vtable), constructor 0x8254C708"""
+fh1_v4 = """0x833D02E0, 0x82014B1C, 0x82559540"""
+what = """The developer launch-options singleton. Its constructor stores the vtable at +0, and the caller builds the object's address with the same instruction pattern as FH1's. The object holds one byte flag per option."""
+how = """Mapper (data); the store of the vtable and the address computed by the constructor's caller, read in both images; in game the vtable word is in place."""
+confidence = """confirmed"""
+source = """src/dev_options.cpp"""
+
+[[finding]]
+group = """Launch options"""
+name = """launch-option flag offsets"""
+v2 = """allowskipvoiceover +4936, NoHandOfGodReset +4949, noattractvideo +4222, disablephotomodecollisiondetection +4933, nohud +3209"""
+fh1_v4 = """+4952, +4965, +4238, +4949, +3217"""
+what = """Byte flags in the launch-options object. Most sit 16 bytes before FH1 v4's; nohud sits 8 bytes before. Lavender holds the first four live from the GAMEPLAY page."""
+how = """Each option name's string, the code that loads its address, and the r31-relative offset passed beside it. The method reproduces FH1 v4's known offsets."""
+confidence = """probable"""
+note = """The flags are written and read back in game. Their effects (skippable voice-overs, no automatic reset, no attract video, photo camera collision) are not yet seen in FH2."""
+source = """src/dev_options.cpp"""
+
+[[finding]]
+group = """World and time of day"""
+name = """time-of-day accessor and clock"""
+v2 = """0x82496DA0; world +232; time of day +10488"""
+fh1_v4 = """0x824B6990; +232; +10488"""
+what = """The accessor returns world+232, the time-of-day object; its float at +10488 is seconds since midnight. In free roam the clock ran 48 game seconds per real second (18:03 onwards)."""
+how = """Mapper (context and shape-context): identical accessor, and the clock read with the same instruction as FH1's; hook on the accessor's entry keeping r3 (the world)."""
+confidence = """confirmed"""
+source = """src/render_settings.cpp LavenderObserveWorld, GameSecondsOfDay"""
+
+[[finding]]
+group = """World and time of day"""
+name = """FH1's world-holder path does not reach FH2's world"""
+v2 = """0x83422224"""
+fh1_v4 = """0x833CAAE4"""
+what = """Negative result: FH1 reaches the world through holder+4 (a handle) and handle+4. In FH2 the mapped holder leads to 401011C0, then 2E1EB240, then 01020000, which is not the world. Use the time-of-day accessor hook instead."""
+how = """Each pointer logged in free roam."""
+confidence = """confirmed"""
+source = """src/render_settings.cpp"""
+
+[[finding]]
+group = """System UI"""
+name = """pause menu opens behind the host menu"""
+what = """When the host settings menu opens it signals XAM system UI, and FH2 opens its own pause menu, which stays open after the host menu closes (B closes it)."""
+how = """Screenshots after closing the F6 menu."""
+confidence = """confirmed"""
+note = """Pinyon relies on the same pause for FH1. A quieter way to stop FH2's input or time while the host menu is open is open work."""
+source = """src/ui/hostui"""
+
+[[finding]]
+group = """Movies"""
+name = """XMedia decode result"""
+v2 = """0x82FEB3DC"""
+fh1_v4 = """0x82F1F504"""
+what = """The XMedia wrapper's decode result passes through r3 here. Returning the decoder's end-of-stream result (0x16660026) ends a movie through the game's own movie-finished path. FH2 keeps its logo movies in media/ui/videos/splash_intros, like FH1; only those are ended, because ending every stream also ends the PressStart.wmv loop behind the title menus (FH1)."""
+how = """Mapper (exact), identical instructions; movie names from the disc's file list; the playing movie from the guest file-open observer."""
+confidence = """probable"""
+source = """src/movie_hooks.cpp"""
+
+[[finding]]
+group = """World and time of day"""
+name = """game object, world and game mode"""
+v2 = """0x83422224 (game object pointer), sub_8248F578 (world getter)"""
+fh1_v4 = """0x833CAAE4, sub_824AF1E8"""
+what = """The global at 0x83422224 points at the game object. sub_8248F578(game, 0) returns where the world pointer is kept, so the world is [sub_8248F578([0x83422224], 0)]; every caller of the player-slot getter reaches the world this way. As in FH1, the session is [world + 124] and the game mode its word at +56: 17 in free roam, as in FH1."""
+how = """Mapper (data for the pointer, aligned for the getter); the callers of the player-slot getter all load the pointer and call the getter with 0; run-time log of the mode in free roam."""
+confidence = """confirmed"""
+note = """FH1's own chain [[[0x833CAAE4] + 4] + 4] does not reach the world in FH2. The race mode number (3 in FH1) is not checked yet."""
+source = """src/ai_driver.cpp"""
+
+[[finding]]
+group = """Cars"""
+name = """player car slot and AI control setter"""
+v2 = """sub_8249BE10 (player slot), sub_824FAA98 (control setter)"""
+fh1_v4 = """sub_824BB8F8, sub_8250B050"""
+what = """sub_8249BE10(world, 0) returns the player's car slot ([slot] is the car). sub_824FAA98(car, mode) sets the car's control mode word at car+15400 and switches its AI controller (car+15392) off for 0 and on for 1 or 3; no other value does anything. FH2's car fields here sit 160 bytes after FH1 v4's. The word reads 1 while the player drives in free roam, as in FH1's base game, so it does not tell player from AI."""
+how = """Mapper (exact for the slot getter; shape-context for the setter, then the same instructions with offsets moved by 160); calling both from the simulation step in free roam (lavender_ai_drives_player)."""
+confidence = """confirmed"""
+note = """Negative result: in free roam the AI takes the car (brake lights on) but never moves, with or without a GPS route set, so it cannot drive the player to an event. FH2's engageaionstart (option byte 3076), engagerandomsatnav (3077), autodriveway (3080), bestplayerai (3108) and enableaitoggle (3109) are parsed but have no code reader at those offsets, and holding them changed nothing in free roam."""
+source = """src/ai_driver.cpp; src/dev_options.cpp (lavender_dev_option_bytes)"""
+
+[[finding]]
+group = """Events"""
+name = """starting events without driving"""
+what = """Negative result: FH2 starts a championship only by driving into its map icon. Fast travel reaches festival hubs only (10,000 credits each); a hub's event list offers Race Rival, which needs a leaderboard time and an Xbox Live profile, and Online Road Trip also needs Live. A scripted race route therefore needs a seed saved at an event start, or a person to drive there once."""
+how = """Experiment on the TU v2 build: map, fast travel to Castelletto, the hub's Progress and Roadtrip pages."""
+confidence = """confirmed"""
+source = """docs/PINYON_PARITY.md LP-0.4"""
+
+[[finding]]
+group = """Pause menu"""
+name = """Xbox Live unavailable explanation"""
+v2 = """sub_826CDF40 (vtable slot at 0x82385B08), reached through the delegate thunk sub_826D1EE8; UI message post sub_826A3510"""
+what = """sub_826CDF40(owner, request) explains why Xbox Live is unavailable: it picks a reason text, posts it as UI message 251 (FEATURE UNAVAILABLE with the reason) and returns true (the byte at r1+124, epilogue 0x826CE248). A tile that needs Live reaches it through a delegate; the request's second word names the feature: 2 for the Home page's ONLINE ROAD TRIP, 9 for the Social page's FRIENDS. Lavender Shift hooks it at 0x826CDF58 and opens the host settings for feature 2 instead (LP-2.11). sub_826A3510(owner, message, payload, flags) posts a UI message; the popup builders end with it (the pause menu's own locked-tile popup posts 243)."""
+how = """Logging every caller of sub_826A3510 once while pressing the tiles (message 251 from 0x826CE230), then the request words at the hook for two tiles; the interception verified in game: the tile opens the settings with no popup."""
+confidence = """confirmed"""
+note = """The guest back chain stops at the delegate (the caller's frame is not a plain stwu frame), so the request word is what identifies the tile. The tile's label is IDS_MultiplayerOption from the pause menu's string table (AN_PauseMenu): its string ID is held in the global 0x834584E4, filled at startup by name, and only the online tile's builders load it. The table lookup sub_82E34E90(table, id) returns the text as big-endian UTF-16; Lavender hooks it at 0x82E34EA0 and returns "PC SETTINGS" for that ID, seen in game. An earlier note here said 0x834584E4 was not the label; that was wrong."""
+source = """src/pause_menu_hooks.cpp; config/analysis/default.toml; docs/PINYON_PARITY.md LP-2.11"""
+
+[[finding]]
+group = """Pause menu"""
+name = """Anthem pause menu tiles"""
+v2 = """vtable 0x82034344 (slot 5 sub_8265F0D0 binds, slot 10 sub_8265D8A8 handles input, slot 11 sub_8265F950 unbinds); Home page handler sub_8265BC38; tile creator sub_826E5660; Home page builder around 0x826F0500"""
+what = """FH2's pause menu (CAnthem_PauseMenu, scene Anth_925_PAUSE_MENU_FIRSTPASS) is pages of picture tiles (HOME, SOCIAL, CARS, PROGRESS), not FH1's list of rows. Each tile is made by sub_826E5660 with a string ID (r4: "map", "online", "xbox_live_off", "photo", "profile", ...) and its image name (r8). Slot 5 looks up 49 named scene elements into a table ("done", "map", "online", "online_server_down", ..., "photo", "profile", "s_online", "a_buycars", "p_roadtrip", ...). Slot 10 passes input to six page handlers; the Home one, sub_8265BC38, checks each element for activation and runs that tile's functor at menu+156+24*slot: map +156, online +180 (0x8265BCBC), online_server_down +204 (0x8265BD10). The game's own SETTINGS tile is "profile". Offline, ONLINE ROAD TRIP shows FEATURE UNAVAILABLE (an Xbox Live profile is needed), and that press does not reach these functor calls or the menu's locked-tile popups (sub_826F60F8, sub_826F6D28): hooks on all four never fired."""
+how = """Code references to the tile image names and IDs, the name table, the vtable around the binder; screenshots of the Home page and of the offline tile; logging hooks on the functor calls and popups (never hit)."""
+confidence = """probable"""
+note = """Pinyon's FH1 pause hooks (row model, CPauseMenu action switch) have no counterpart here: the mapper places none of them."""
+source = """src/pause_menu_hooks.cpp; config/analysis/default.toml"""

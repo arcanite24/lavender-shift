@@ -1,0 +1,114 @@
+# Rendering: FH2 post effects, render scenarios, camera and HUD (TU v2).
+
+[[finding]]
+group = """Post effects"""
+name = """per-frame bloom scale"""
+v2 = """0x82474E2C"""
+fh1_v4 = """0x82494E44"""
+what = """By this point each frame the game has put the interpolated bloom scale at r1+264, as in FH1. Zeroing it is the BLOOM setting. The hook runs once per frame (600 calls in 10 s at 60 fps)."""
+how = """FH1 v4 → TU v2 address mapper (context); the nine instructions around the site are identical to FH1's; call counts from a hook."""
+confidence = """probable"""
+note = """That the site runs every frame is confirmed. Its visual effect has not been compared in a capture yet."""
+source = """src/graphics_hooks.cpp LavenderBloomScale"""
+
+[[finding]]
+group = """Post effects"""
+name = """motion blur strength store"""
+v2 = """0x82F0483C"""
+fh1_v4 = """0x82E3A924"""
+what = """Stores motion blur's strength (f8) to r3+80 of a blur object. Skipping the store (Xenia Canary's FH1 patch) leaves the strength at 0, and no motion blur is drawn. In FH2 the site runs only while a scene loads (5-6 calls at boot, none in play), so a toggle in play has no effect. Lavender keeps each object and its value and writes 0 or the value back live."""
+how = """Mapper (aligned), identical instructions; hook call counts; reversing at 73-77 km/h with blur on and off, from launch and live (5 of 5 objects written)."""
+confidence = """confirmed"""
+source = """src/graphics_hooks.cpp LavenderDisableMotionBlur, ApplyMotionBlur"""
+
+[[finding]]
+group = """Post effects"""
+name = """motion blur velocity pass and stencil object IDs"""
+v2 = """GPU only: pixel shader ucode hash ADD2563BA387C2BF, a 640x360 pass after the bloom chain"""
+what = """Camera motion blur reprojects each pixel from the main view's depth-stencil resolve (D24FS8 read as 8_8_8_8: float depth in three bytes, stencil in the fourth) into a half-resolution velocity buffer, which the final composite blurs along. The stencil is an object ID in steps of 3 (the player car writes 0x0F, ID 5; other cars 0x06 and 0x0C; the world 0), and ID n selects the transform at pixel constants c32+4n. Stencil values at or above the threshold in c253.w are flags and use the world's transform: grass writes 0x81, and each car shadow's stencil volume (a 30-index box with z-pass invert on bit 7, then a shadow draw where stencil equals 0x80) marks the road it covers with 0x80. The threshold, 0x3F008100, is 128/255 plus half a 16-bit step, so 0x80 is not counted as a flag; it reads as ID 43, whose constants hold identity, and that road gets no velocity: an unblurred square under every moving car. Treating the threshold as 0.5 for this shader blurs that road like the rest, keeps the car shadows, and leaves the car sharp."""
+how = """Frame dump taken at about 100 km/h, replayed offline: fh1_debug_skip_draws bisection (the pass, then the shadow-volume draws), the resolved depth-stencil untiled and compared between the depth prepass and the colour pass's per-band resolve, and the pass's constants logged at the draw; the fix checked in the replay."""
+confidence = """confirmed"""
+note = """The colour pass draws in three screen bands (EDRAM tiling) and resolves each band's depth-stencil over the depth prepass's copy, which is how the 0x80 marks reach the velocity pass. The stencil values and the IDs are this frame's (free roam, one other car)."""
+source = """docs/STAGE0.md "Motion blur"; src/lavender_shift_app.cpp (gpu_pixel_constant_fixups default)"""
+
+[[finding]]
+group = """Post effects"""
+name = """depth of field decisions"""
+v2 = """0x8246AC34, 0x82467C0C, 0x82467C3C"""
+fh1_v4 = """0x8248AB7C, 0x82487B54, 0x82487B84"""
+what = """Three loads of the depth-of-field flag into r11. Forcing r11 to 0 turns depth of field off, as in FH1. The sites ran about 1,800 times while menus and the pause screen were shown, then stopped in free-roam driving."""
+how = """Mapper (aligned), identical instructions; hook call counts."""
+confidence = """probable"""
+note = """The visual effect has not been compared yet; FH2 uses depth of field mostly behind menus."""
+source = """src/graphics_hooks.cpp LavenderDisableDepthOfField"""
+
+[[finding]]
+group = """Render scenarios"""
+name = """DynamicRenderSettings control load"""
+v2 = """0x82F0D058"""
+fh1_v4 = """0x82E43458"""
+what = """Follows the load of each DynamicRenderSettings control from a render scenario's XML: r30 the control, r26 the scenario. Free roam loads 20 gameplay scenarios, each with one float control, EnvMapFrequencyScale."""
+how = """Mapper (exact); hook with a scenario count."""
+confidence = """confirmed"""
+source = """src/render_settings.cpp LavenderRenderSettingLoaded"""
+
+[[finding]]
+group = """Render scenarios"""
+name = """render setting control vtables"""
+v2 = """0x8224B4B4 (float), 0x8224B584 (bool)"""
+fh1_v4 = """0x8224F754 (float), 0x8224F824 (bool)"""
+what = """Vtables of the float and bool DynamicRenderSettings controls. A float control's value is at +4. SkipShadowMapUnlessCockpit is a bool control embedded in each scenario at +0x194; its set bit is bit 3 of the word at +40, as in FH1."""
+how = """The bool vtable came from the mapper (data-ref). The float vtable did not map; it was found by mapping the functions FH1's table points to and searching FH2 for a table with those five entries, which matched only 0x8224B4B8."""
+confidence = """confirmed"""
+source = """src/render_settings.cpp"""
+
+[[finding]]
+group = """Render scenarios"""
+name = """shadows off through SkipShadowMapUnlessCockpit"""
+v2 = """scenario +0x194"""
+fh1_v4 = """scenario +0x194"""
+what = """Setting SkipShadowMapUnlessCockpit in all 20 gameplay scenarios removes the sun's shadows in free roam (the car and trees cast none). The executor's shadow-mask lookup finds FH2's mask (1CE2D000+398000), which is then kept lit. Whether FH2's headlights also need the shadow passes, as FH1's do, is not checked: Lavender uses FH1's daytime hours (08:02-18:50) until it is."""
+how = """Live toggle in free roam with before and after screenshots."""
+confidence = """confirmed"""
+source = """src/render_settings.cpp KeepShadowsOff"""
+
+[[finding]]
+group = """Render scenarios"""
+name = """EnvMapFrequencyScale"""
+v2 = """float control +4"""
+fh1_v4 = """float control +4"""
+what = """How often the dynamic cube map that cars reflect is redrawn, set per scenario. Scaling it is the REFLECTION UPDATES setting."""
+how = """Same control and layout as FH1; written live."""
+confidence = """probable"""
+note = """The GPU saving is not measured on FH2 yet."""
+source = """src/render_settings.cpp SetEnvMapRate"""
+
+[[finding]]
+group = """Camera"""
+name = """camera vertical field of view"""
+v2 = """0x829BB414"""
+fh1_v4 = """0x828FF264"""
+what = """Return of the camera's vertical field-of-view getter (f1, radians). Scaling it widens every camera at once, culling included. The getter runs about 1,440 times a second in free roam."""
+how = """Mapper (context), identical instructions; live 100 % → 130 % change seen behind the pause menu."""
+confidence = """confirmed"""
+source = """src/graphics_hooks.cpp LavenderCameraFieldOfView"""
+
+[[finding]]
+group = """HUD"""
+name = """HUD hidden byte"""
+v2 = """0x83449CA2"""
+fh1_v4 = """0x833F0F91"""
+what = """While this byte is set, the HUD's elements hide (speedometer, route arrow); clearing it shows them again. F2 holds it at 1."""
+how = """Mapper (data); live toggle with screenshots."""
+confidence = """confirmed"""
+source = """src/graphics_hooks.cpp UpdateHud"""
+
+[[finding]]
+group = """Camera"""
+name = """viewport aspect getter"""
+v2 = """0x823F2328 (entry), 0x823F2354 (return)"""
+fh1_v4 = """0x82412260, 0x8241228C"""
+what = """Returns a viewport's width / height (r3 the viewport, width at +8, height at +12) as f1, to the camera, its culling and its projection. Returning a wider aspect for the gameplay view is WIDER VIEW (Hor+). It has seven callers; the gameplay camera's view returns to 0x82B24824 (FH1 v4 0x82A58E34) and the pause map's to 0x82789EC0 (FH1 v4 0x826E30A8)."""
+how = """The mapper did not place it. FH1's eleven instructions occur once in the TU v2 image. The two callers came from the mapper (aligned and exact) and were checked to call the getter. Widening every 1280x720 call but the map's widened the gameplay view in a 21:9 window; widening only the gameplay caller's result did not change the image."""
+confidence = """confirmed"""
+source = """src/wide_view.cpp"""

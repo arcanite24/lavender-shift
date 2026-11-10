@@ -27,11 +27,18 @@ Set by the maintainer on 2026-11-09:
    fork of ReXGlue), which must run FH1 and FH2. There is no second fork
    (decided after the first draft of this page). The reference model is
    still UnleashedRecomp: more native code, more reverse engineering.
+5. **Windows desktop first** (2026-11-09, after the first draft). Work
+   and measurement run on the Windows desktop (multivac, a Ryzen 7 5800X
+   and an RTX 4080) until the maintainer brings the other platforms
+   back. The handheld items below stay in the plan and wait; their
+   desktop parts run now.
 
 The yardstick is Pinyon's NN one: total CPU milliseconds per frame over
 all threads, plus resident memory, on the Odin 2 Portal and the Steam
-Deck LCD, in a race at 60 fps. The desktop is secondary. This page adds
-four measures to it:
+Deck LCD, in a race at 60 fps. While rule 5 holds, it is taken on
+multivac instead, and the handheld figures on this page are the targets
+the desktop work is designed against. This page adds four measures to
+it:
 - GPU ms per pass, since the GPU binds both handhelds;
 - p95 and p99 frame times;
 - the critical path of the render and simulation threads, not only the
@@ -127,7 +134,7 @@ four measures to it:
   GPU results (auto-exposure luminance, thumbnails) that need a
   deliberate readback design.
 - **Stage 0 needs a running FH2 on the handhelds, not only on the
-  desktop.** It comes from today's ShiftGlue, running the TU v2 image on
+  desktop**, once rule 5 is lifted. It comes from today's ShiftGlue, running the TU v2 image on
   the existing PM4 path through Pinyon's Android and Deck pipelines. The
   FH1 numbers above are only a proxy. The one FH2 handheld number
   (fh2-recompiled: 20-30 fps in a heavy race on the Galaxy S23, the
@@ -984,8 +991,11 @@ texture pages.
 
 Stage 0 runs on a **reference build**: the TU v2 image recompiled on
 ShiftGlue as it is today, with the existing PM4 path, on the desktop
-**and on the Odin and the Deck** through Pinyon's Android and Deck
-pipelines. fh2-recompiled shows ReXGlue reaches FH2 races, so this is
+and later on the Odin and the Deck through Pinyon's Android and Deck
+pipelines. Under rule 5 only the desktop runs now: its status and
+numbers are in [STAGE0.md](STAGE0.md), and the probes below that need a
+handheld (the Odin and Deck parts of LV-0.3, LV-0.5, LV-0.13, LV-0.14,
+LV-0.16, LV-0.17 and LV-0.19) wait, while their desktop parts run. fh2-recompiled shows ReXGlue reaches FH2 races, so this is
 days, not weeks (est.). The reference build also takes the FH2 fixes
 that fh2-recompiled found:
 - the ring read pointer published after each block;
@@ -1028,12 +1038,14 @@ in-run A/B stays possible.
    resolves and the race. Measure per-draw CPU against the 1 µs target
    at each step.
 3. **LV-1.3 Audio, video, input, saves.**
-4. **LV-1.4 New paths on the handhelds early.** The reference build is
-   on the Odin and the Deck from Stage 0. The new paths go there as soon
-   as menus render. Pinyon's lesson is to port to a second architecture
+4. **LV-1.4 New paths on the handhelds early**, once rule 5 is lifted.
+   The reference build goes to the Odin and the Deck first; the new
+   paths follow as soon as menus render. Pinyon's lesson is to port to a second architecture
    before the design sets (fences, 16 KB pages, shared-library statics).
 5. **LV-1.5 Performance passes** on the yardstick, then the player
-   features Pinyon has (presets, launcher, settings).
+   features Pinyon has (presets, launcher, settings). Most of these work
+   on today's renderer, so [PINYON_PARITY.md](PINYON_PARITY.md) brings
+   them forward on the reference build.
 6. **LV-1.6 FH1 onto the shared paths.** Pinyon adopts the trusted-ABI
    profile, the lean runtime mode and the engine renderer, one at a
    time behind its own gates. The Xenia GPU path is then retired from
