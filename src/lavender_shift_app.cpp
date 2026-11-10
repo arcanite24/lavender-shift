@@ -37,6 +37,7 @@
 #include "pause_menu_hooks.h"
 #include "ui/settings_menu.h"
 #include "ui/xam_dialogs.h"
+#include "guest_native/guest_native.h"
 
 LavenderShiftApp::~LavenderShiftApp() = default;
 
@@ -260,6 +261,7 @@ void LavenderShiftApp::OnPostSetup() {
 }
 
 void LavenderShiftApp::OnShutdown() {
+  lavender_shift::guest_native::RecordSummary();
   rex::ui::UnregisterBind("bind_game_menu");
   lavender_shift::pause_menu::SetSettingsHandler(nullptr);
   lavender_shift::cvar_cycle::Stop();

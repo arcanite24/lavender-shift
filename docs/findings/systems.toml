@@ -109,3 +109,13 @@ how = """Code references to the tile image names and IDs, the name table, the vt
 confidence = """probable"""
 note = """Pinyon's FH1 pause hooks (row model, CPauseMenu action switch) have no counterpart here: the mapper places none of them."""
 source = """src/pause_menu_hooks.cpp; config/analysis/default.toml"""
+
+[[finding]]
+group = """CRT"""
+name = """CRT pow and natural log"""
+v2 = """sub_82448D90 (pow), sub_82C04490 (natural log)"""
+fh1_v4 = """sub_82468E50, sub_82B3DF18"""
+what = """FH2 links FH1's CRT pow: 1,252 bytes, 145 direct call sites. Its body and all eight functions it calls match FH1 v4 word for word once branch targets and constant addresses are masked; the only differing displacement is the constant 2.0, which moved with the rest of the first data page. The natural log it calls for an exponent of 1 matches the same way (its .pdata entry differs, so it was compared from the entry to its return). The coefficient tables sit 0x35B8 below FH1 v4's. In free roam pow runs about 110,000 times a second."""
+how = """Mapper (aligned for pow, context for the log, data pairs for the constants), word-by-word comparison of the bodies and callees, constants checked by value; Pinyon's bit-identical native pow then ran 14.2 million calls in verify mode with no mismatch."""
+confidence = """confirmed"""
+source = """src/guest_native/crt_math.cpp; docs/PINYON_PARITY.md LP-4.3"""

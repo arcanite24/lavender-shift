@@ -29,6 +29,8 @@ set(LAVENDER_SHIFT_SOURCES
     src/hitch_sampler_win.cpp
     src/save_backups.cpp
     src/fixed_steps.cpp
+    src/guest_native/guest_native.cpp
+    src/guest_native/crt_math.cpp
     src/ring_wait.cpp
     src/simulation_hooks.cpp
     src/graphics_hooks.cpp
