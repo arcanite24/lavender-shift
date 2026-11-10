@@ -43,6 +43,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/ui/png_writer.cpp
     src/config/host_config.cpp
     src/ui/settings_menu.cpp
+    src/ui/xam_dialogs.cpp
     src/ui/hostui/bitmap_font.cpp
     src/ui/hostui/fh1_archive.cpp
     src/ui/hostui/glyph_atlas.cpp

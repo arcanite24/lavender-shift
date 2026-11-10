@@ -12,6 +12,7 @@
 
 #include "config/host_config.h"
 #include "save_backups.h"
+#include <rex/kernel/xam/ui_provider.h>
 #include "ui/hostui/host_ui.h"
 
 // From the generated init header (lavender_shift_pch.h).
@@ -65,5 +66,6 @@ class LavenderShiftApp : public rex::ReXApp {
   std::unique_ptr<lavender_shift::config::HostConfig> host_config_;
   std::unique_ptr<lavender_shift::hostui::HostUi> host_ui_;
   std::unique_ptr<lavender_shift::SaveBackups> save_backups_;
+  std::unique_ptr<rex::kernel::xam::XamUiProvider> xam_dialogs_;
   std::filesystem::path user_root_;
 };

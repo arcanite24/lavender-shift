@@ -1,6 +1,9 @@
 #include "lavender_shift_app.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <thread>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -33,6 +36,7 @@
 #include "save_backups.h"
 #include "pause_menu_hooks.h"
 #include "ui/settings_menu.h"
+#include "ui/xam_dialogs.h"
 
 LavenderShiftApp::~LavenderShiftApp() = default;
 
@@ -51,6 +55,10 @@ void ApplyMasterVolume() {
 }
 }  // namespace
 
+REXCVAR_DEFINE_BOOL(lavender_host_xam_dialogs, true, "Lavender Shift",
+                    "Draw the game's message boxes and keyboard with the host UI (the game's "
+                    "fonts, pad navigation) instead of the SDK's ImGui dialogs")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_BOOL(lavender_save_backups, true, "Lavender Shift",
                     "Copy the profile folders to <user>/backups/saves after the game saves (at "
                     "most every ten minutes, and at exit); the PROFILE page restores them")
@@ -214,6 +222,39 @@ void LavenderShiftApp::OnPostSetup() {
         size_t(std::max(1, REXCVAR_GET(lavender_save_backup_count))));
     save_backups_->Start();
   }
+  if (REXCVAR_GET(lavender_host_xam_dialogs)) {
+    xam_dialogs_ = lavender_shift::ui::CreateXamDialogs(
+        [this]() -> lavender_shift::hostui::HostUi* {
+          return EnsureHostUi() ? host_ui_.get() : nullptr;
+        });
+    rex::kernel::xam::SetXamUiProvider(xam_dialogs_.get());
+    // LAVENDER_SHIFT_XAM_DIALOG_SELF_TEST=<seconds>: a message box, then a
+    // keyboard, as the game would open them; the answers go to the log.
+    if (const char* delay = std::getenv("LAVENDER_SHIFT_XAM_DIALOG_SELF_TEST")) {
+      const int seconds = std::max(1, std::atoi(delay));
+      std::thread([this, seconds] {
+        std::this_thread::sleep_for(std::chrono::seconds(seconds));
+        if (!window()) return;
+        window()->app_context().CallInUIThreadDeferred([this] {
+          xam_dialogs_->ShowMessageBox(
+              "Self test", "A message box drawn by the host UI.", {"First", "Second"}, 0,
+              [this](uint32_t button) {
+                lavender_shift::diagnostics::RecordEvent(
+                    "xam.dialog.self_test", {{"kind", "message_box"},
+                                             {"button", std::to_string(int32_t(button))}});
+                xam_dialogs_->ShowKeyboard(
+                    "Self test", "Type a name", "LAV", 15,
+                    [](bool accepted, std::string text) {
+                      lavender_shift::diagnostics::RecordEvent(
+                          "xam.dialog.self_test", {{"kind", "keyboard"},
+                                                   {"accepted", accepted ? "1" : "0"},
+                                                   {"text", text}});
+                    });
+              });
+        });
+      }).detach();
+    }
+  }
   // The runtime's components may have replaced the crash filter by now.
   lavender_shift::diagnostics::RefreshCrashReporter();
 }
@@ -235,6 +276,8 @@ void LavenderShiftApp::OnShutdown() {
   }
   rex::cvar::UnregisterChangeCallbacks("vsync");
   // Before the presenter and drawer it uses are torn down.
+  rex::kernel::xam::SetXamUiProvider(nullptr);
+  xam_dialogs_.reset();
   host_ui_.reset();
   // Takes the exit backup when the saves changed since the last one.
   save_backups_.reset();
