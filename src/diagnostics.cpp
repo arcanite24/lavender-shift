@@ -113,6 +113,10 @@ const std::string& SessionId() { return g_session_id; }
 std::filesystem::path LogsDir() { return g_logs.empty() ? std::filesystem::path("logs") : g_logs; }
 
 void RecordEvent(std::string_view event, std::initializer_list<Field> fields) {
+  RecordEvent(event, std::span<const Field>(fields.begin(), fields.size()));
+}
+
+void RecordEvent(std::string_view event, std::span<const Field> fields) {
   std::ostringstream json;
   json << "{\"schema\":1,\"utc\":\"" << UtcTimestamp(false) << "\",\"session\":\""
        << JsonEscape(g_session_id) << "\",\"event\":\"" << JsonEscape(event) << "\",\"tid\":\""

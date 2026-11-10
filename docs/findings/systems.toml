@@ -139,3 +139,34 @@ what = """Releases a {begin, end, capacity} array of 16-byte elements with trivi
 how = """Mapper (exact), byte comparison; a counting hook at the walk with lavender_array_walk_log (removed)."""
 confidence = """confirmed"""
 source = """docs/PINYON_PARITY.md LP-4.3"""
+
+[[finding]]
+group = """Audio"""
+name = """FMOD output and XAudio2 voices"""
+v2 = """GetState sub_8319A498, SubmitSourceBuffer sub_8319A310, Start sub_83199FD0, Stop sub_8319A128, DestroyVoice sub_8319FF18, FlushSourceBuffers sub_83198B38, CreateSourceVoice sub_83191FA8, CreateSubmixVoice sub_83192F58, SetOutputMatrix sub_831999C8, SetEffectChain sub_831999A0; source voice interface table 0x8229E760; FMOD output init sub_830E9DF0 (call returns 0x830EA0F8, 0x830EA2C0)"""
+fh1_v4 = """sub_83171D10, sub_83171B88, sub_83171848, sub_831719A0, sub_83171230, sub_831703C0, sub_831696F8, sub_8316A6A8, sub_831764C8, sub_831776E8; 0x822C7628; sub_830C0DC0"""
+what = """FH2 links the same FMOD Ex Xenon output and XAudio2 as FH1: one float source voice (six channels, 48 kHz) looping over a 2,048-frame ring of 49,152 bytes, polled through GetState. Every XAudio2 method maps exactly (the three 8-byte interface thunks through the vtable, whose slots match FH1's: +0x40 SetOutputMatrix, +0x48 DestroyVoice, +0x4C Start, +0x50 Stop, +0x54 Submit, +0x58 Flush). In free roam the guest pass's output equals the ring sample for sample ("exact" in shadow mode); during the intro movie the ring is silent and the movie's own voice plays."""
+how = """Mapper (exact, vtable for the thunks, aligned for the FMOD call sites), body and vtable comparison; Pinyon's native output in shadow mode, then native mode."""
+confidence = """confirmed"""
+source = """src/guest_native/fmod_output.cpp; docs/PINYON_PARITY.md LP-4.5"""
+
+[[finding]]
+group = """Audio"""
+name = """FMOD ParamEQ unit"""
+v2 = """read thunk sub_830B1B30, read sub_830B0DF0, coefficients sub_830B0D00"""
+fh1_v4 = """sub_83088AB0, sub_83087D70, sub_83087C80"""
+what = """The same ParamEQ as FH1's: the thunk and coefficient function map exactly, and the 3,008-byte read differs only in the address of one scratch float it stores through r6 (0x83403628 against FH1 v4's 0x833AFF48), which Pinyon's twin does not touch, so its unit layout holds. The twin verified clean against the original (no call under the 60 dB threshold)."""
+how = """Mapper (exact, code-ref, context), word comparison; Pinyon's twin under lavender_fmod_dsp_verify."""
+confidence = """confirmed"""
+source = """src/guest_native/fmod_dsp.cpp; docs/PINYON_PARITY.md LP-4.5"""
+
+[[finding]]
+group = """Audio"""
+name = """voice-chat (XHV2) tick"""
+v2 = """sub_8246D418"""
+fh1_v4 = """sub_8248D438"""
+what = """The XDK voice thread's 100 Hz tick, polling the four user slots for voice packets, headsets and sign-in changes; FH2's is FH1 v4's (exact). Lavender skips it and waits 50 ms instead, as Pinyon does."""
+how = """Mapper (exact), hash check at install."""
+confidence = """confirmed"""
+source = """src/guest_native/voice_chat.cpp"""
+

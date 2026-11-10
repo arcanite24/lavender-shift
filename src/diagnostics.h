@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <initializer_list>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -27,5 +28,7 @@ std::filesystem::path LogsDir();
 // before a problem.
 using Field = std::pair<std::string_view, std::string>;
 void RecordEvent(std::string_view event, std::initializer_list<Field> fields = {});
+// The same with fields built at run time.
+void RecordEvent(std::string_view event, std::span<const Field> fields);
 
 }  // namespace lavender_shift::diagnostics

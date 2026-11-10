@@ -22,8 +22,12 @@ direct_calls_bypass_thunk = true
 # thunk instead, or the replacement only sees indirect calls.
 # 0x82B72EA8: the ring-room poll (src/ring_wait.cpp); 0x82448D90: the CRT
 # pow (src/guest_native/crt_math.cpp); 0x831DDA78: the LZX block decoder
-# (src/guest_native/lzx_decoder.cpp).
-host_overridden_functions = [0x82B72EA8, 0x82448D90, 0x831DDA78]
+# (src/guest_native/lzx_decoder.cpp); FMOD's output and the XAudio2
+# methods it uses, the ParamEQ read thunk and the voice-chat tick
+# (src/guest_native/fmod_output.cpp, fmod_dsp.cpp, voice_chat.cpp).
+host_overridden_functions = [0x82B72EA8, 0x82448D90, 0x831DDA78,
+    0x8319A498, 0x8319A310, 0x83199FD0, 0x8319A128, 0x8319FF18, 0x83198B38,
+    0x83191FA8, 0x83192F58, 0x831999C8, 0x831999A0, 0x830B1B30, 0x8246D418]
 fold_rodata_loads = true
 host_local_register_saves = true
 host_local_lr = true
