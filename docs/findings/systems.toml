@@ -129,3 +129,13 @@ what = """Decodes LZX symbols into the window for the streaming workers. FH2's 1
 how = """Mapper (exact for the function, data pair for the mask), byte comparison; Pinyon's native decoder matched every call in verify mode."""
 confidence = """confirmed"""
 source = """src/guest_native/lzx_decoder.cpp; docs/PINYON_PARITY.md LP-4.3"""
+
+[[finding]]
+group = """CRT"""
+name = """16-byte array release walk (not hot in FH2)"""
+v2 = """sub_8255A148, walk at 0x8255A178"""
+fh1_v4 = """sub_82D19DB8"""
+what = """Releases a {begin, end, capacity} array of 16-byte elements with trivial destructors: an empty walk from begin to end, then the free. Same 104 bytes as FH1 v4's but for the branch to the free, and 48 direct callers. Unlike FH1, where the walk took about a fifth of a streaming worker, FH2 ran 288 releases over 77,201 elements from boot to a minute of free roam, so Pinyon's skip was measured and not kept."""
+how = """Mapper (exact), byte comparison; a counting hook at the walk with lavender_array_walk_log (removed)."""
+confidence = """confirmed"""
+source = """docs/PINYON_PARITY.md LP-4.3"""
