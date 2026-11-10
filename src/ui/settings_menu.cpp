@@ -24,6 +24,7 @@
 #include "config/default_keys.h"
 #include "save_backups.h"
 #include "diagnostics.h"
+#include "frame_rate.h"
 
 namespace lavender_shift::ui {
 namespace {
@@ -298,19 +299,19 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     rows.push_back(Setting("FIELD OF VIEW", std::move(fov)));
   }
   rows.push_back(Page("HUD", &SettingsPages::Hud));
-  // The rate the game simulates and renders at, which sets most of its CPU
-  // cost. 30 is the console's own rate; DISPLAY renders 60 on a 60 Hz or
-  // faster display (two guest vblanks a frame).
-  rows.push_back(Setting("GAME FRAME RATE",
-                         {{"30 (CONSOLE)", {{"pinyon_shift_fh1_render_fps_limit", "30"}}},
-                          {"40", {{"pinyon_shift_fh1_render_fps_limit", "40"}}},
-                          {"60", {{"pinyon_shift_fh1_render_fps_limit", "60"}}},
-                          {"DISPLAY", {{"pinyon_shift_fh1_render_fps_limit", "0"}}}}));
-  rows.push_back(Setting("FRAME RATE LIMIT",
-                         {{"OFF", {{"host_present_fps_limit", "0"}}},
-                          {"30", {{"host_present_fps_limit", "30"}}},
-                          {"60", {{"host_present_fps_limit", "60"}}},
-                          {"120", {{"host_present_fps_limit", "120"}}}}));
+  // The one frame rate (src/frame_rate.cpp): the rate the game simulates
+  // and renders at, which sets most of its CPU cost. 30 is the console's.
+  {
+    const std::string display =
+        "DISPLAY (" + std::to_string(frame_rate::DisplayRefreshRate()) + " HZ)";
+    std::vector<Choice> rates;
+    for (const char* rate : {"30", "60", "120", "144"}) {
+      rates.push_back({rate, {{"lavender_frame_rate", "\"" + std::string(rate) + "\""}}});
+    }
+    rates.push_back({display, {{"lavender_frame_rate", "\"display\""}}});
+    rates.push_back({"UNLOCKED", {{"lavender_frame_rate", "\"unlocked\""}}});
+    rows.push_back(Setting("FRAME RATE", std::move(rates)));
+  }
   {
     std::vector<Choice> scaling = {{"BILINEAR", {{"present_effect", "\"bilinear\""}}},
                                    {"CAS", {{"present_effect", "\"cas\""}}},
@@ -368,10 +369,13 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     rows.push_back(Page("HDR CALIBRATION", &SettingsPages::HdrCalibration));
   }
   auto note = [this] {
-    const auto present = Number(Unquote(Live("host_present_fps_limit")));
-    const auto game = Number(Unquote(Live("pinyon_shift_fh1_render_fps_limit")));
-    if (present && *present > 0 && game && (*game == 0 || *game > *present)) {
-      return std::string("THE FRAME RATE LIMIT DROPS FRAMES THE GAME RENDERED");
+    const std::string rate = Unquote(Live("lavender_frame_rate"));
+    const auto number = Number(rate);
+    const uint32_t refresh = frame_rate::DisplayRefreshRate();
+    if (SameValue(Live("vsync"), "true") &&
+        (rate == "unlocked" || (number && *number > double(refresh)))) {
+      return "WITH VSYNC ON THE DISPLAY SHOWS AT MOST " + std::to_string(refresh) +
+             " FRAMES A SECOND";
     }
     if (SameValue(Live("present_hdr"), "true") && !rex::ui::vulkan::GetHdrOutputState().offered) {
       return std::string("HDR NEEDS HDR TURNED ON FOR THIS DISPLAY IN WINDOWS");
@@ -491,8 +495,9 @@ std::unique_ptr<MenuScreen> SettingsPages::Gameplay() {
 
 std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
   std::vector<MenuRow> rows;
+  // Presets leave the frame rate alone (DISPLAY > FRAME RATE), but for
+  // CONSOLE, which also runs the console's 30.
   const auto preset = [](const char* scale, const char* effect, const char* msaa_off,
-                         const char* fps,
                          std::vector<std::pair<std::string, std::string>> extra = {}) {
     std::vector<std::pair<std::string, std::string>> values = {
         {"draw_resolution_scale_x", scale},
@@ -500,8 +505,6 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
         {"present_effect", effect},
         {"fh1_msaa_single_sample", msaa_off},
         {"fh1_msaa_2x", "false"},
-        {"host_present_fps_limit", "0"},
-        {"pinyon_shift_fh1_render_fps_limit", fps},
         {"vulkan_texture_max_size", "0"}};
     for (auto& [name, value] : extra) {
       const auto it = std::find_if(values.begin(), values.end(),
@@ -517,10 +520,11 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
   const std::vector<std::pair<std::string, std::string>> cheapest = {
       {"anisotropic_override", "-1"}, {"swap_post_effect", "\"none\""}};
   rows.push_back(Setting("GRAPHICS PRESET",
-                         {{"CONSOLE 30", preset("1", "\"bilinear\"", "false", "30")},
-                          {"LOW-SPEC 60", preset("1", "\"bilinear\"", "true", "60", cheapest)},
-                          {"PERFORMANCE 60", preset("1", "\"fsr\"", "false", "60")},
-                          {"QUALITY 60", preset("2", "\"bilinear\"", "false", "60")}}));
+                         {{"CONSOLE", preset("1", "\"bilinear\"", "false",
+                                             {{"lavender_frame_rate", "\"30\""}})},
+                          {"LOW-SPEC", preset("1", "\"bilinear\"", "true", cheapest)},
+                          {"PERFORMANCE", preset("1", "\"fsr\"", "false")},
+                          {"QUALITY", preset("2", "\"bilinear\"", "false")}}));
   {
     std::vector<Choice> scales;
     for (int scale = 1; scale <= 4; ++scale) {

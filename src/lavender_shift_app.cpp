@@ -38,6 +38,7 @@
 #include "ui/settings_menu.h"
 #include "ui/xam_dialogs.h"
 #include "guest_native/guest_native.h"
+#include "frame_rate.h"
 
 LavenderShiftApp::~LavenderShiftApp() = default;
 
@@ -162,6 +163,7 @@ void LavenderShiftApp::OnPostInitLogging() {
 void LavenderShiftApp::OnPostSetup() {
   if (config_created_) ApplyFirstRunDefaults();
   lavender_shift::movies::Install();
+  lavender_shift::frame_rate::Install(window() ? window()->GetNativeWindowHandle() : nullptr);
   ApplyMasterVolume();
   rex::cvar::RegisterChangeCallback("lavender_master_volume",
                                     [](std::string_view, std::string_view) { ApplyMasterVolume(); });
@@ -265,6 +267,7 @@ void LavenderShiftApp::OnShutdown() {
   rex::ui::UnregisterBind("bind_game_menu");
   lavender_shift::pause_menu::SetSettingsHandler(nullptr);
   lavender_shift::cvar_cycle::Stop();
+  lavender_shift::frame_rate::Uninstall();
   rex::ui::UnregisterBind("bind_hud");
   rex::ui::UnregisterBind("bind_photo");
   rex::ui::UnregisterBind("bind_fullscreen");
@@ -407,12 +410,13 @@ void LavenderShiftApp::ApplyFirstRunDefaults() {
   const uint32_t cores = rex::thread::logical_processor_count();
   const bool capable = discrete && device_local >= (uint64_t(4) << 30) && cores >= 6;
   REXLOG_INFO("First run on {} ({} MB, {} cores): {}", properties.deviceName, device_local >> 20,
-              cores, capable ? "PERFORMANCE 60" : "LOW-SPEC 60");
+              cores, capable ? "PERFORMANCE" : "LOW-SPEC, 60 fps");
   if (capable) return;
-  // The GRAPHICS PRESET row's LOW-SPEC 60 (src/ui/settings_menu.cpp).
+  // The GRAPHICS PRESET row's LOW-SPEC (src/ui/settings_menu.cpp), at 60 fps.
   static constexpr std::pair<const char*, const char*> kLowSpec[] = {
       {"present_effect", "\"bilinear\""}, {"fh1_msaa_single_sample", "true"},
-      {"anisotropic_override", "-1"},     {"swap_post_effect", "\"none\""}};
+      {"anisotropic_override", "-1"},     {"swap_post_effect", "\"none\""},
+      {"lavender_frame_rate", "\"60\""}};
   if (!host_config_->Load()) return;
   for (const auto& [name, literal] : kLowSpec) {
     host_config_->Set(name, literal);

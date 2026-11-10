@@ -158,13 +158,15 @@ badges:
   - HUD: the HUD switch (F2), HUD SCALE 80-120 % and a SAFE ZONE margin
     of up to 10 %, which move the gameplay HUD only (menus, the map and
     loading screens keep their layout);
-  - game frame rate (30 console, 40, 60, display) and the frame-rate limit;
+  - one FRAME RATE: 30, 60, 120, 144, DISPLAY (the monitor's refresh rate,
+    the default) or UNLOCKED; vsync only decides whether presents wait for
+    the display;
   - monitor and window size;
   - output scaling and sharpening;
   - HDR with its paper white, highlights, gamma, an SDR/HDR compare and a
     calibration page, when the display offers it.
 - **GRAPHICS:**
-  - presets;
+  - presets: CONSOLE (30 fps), LOW-SPEC, PERFORMANCE, QUALITY;
   - resolution scale 1-4x, MSAA (4x, 2x, off);
   - anisotropic and trilinear filtering, texture detail, texture size;
   - post-process AA and AA on the HUD;
@@ -276,8 +278,9 @@ The cause is how frames reached the display:
 
 Lavender now presents each game frame exactly once, paced by vsync. This
 is ShiftGlue's `pinyon_shift_fh1_source_presentation=true` with
-`host_present_fps_limit=0`, the same defaults as Pinyon. A config file or
-command-line value still wins. Same route, the 222 s of driving:
+`host_present_fps_limit=0`, the same defaults as Pinyon. The FRAME RATE
+setting (`lavender_frame_rate`) now owns the render limit and keeps the
+present limit at 0; only a command-line value overrides either. Same route, the 222 s of driving:
 
 | Presentation | Repeated frames/s | Dropped frames/s | Longest present interval |
 | --- | --- | --- | --- |
