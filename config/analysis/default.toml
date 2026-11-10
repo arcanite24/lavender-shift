@@ -1081,3 +1081,26 @@ jump_address_on_true = 0x82DAF848
 address = 0x82DAF848
 name = "LavenderGammaRampLinearBuilt"
 context = true
+
+# Cheats (src/cheats.cpp). Any car in any event: skip the decode of an
+# EventRestrictions row's Value in sub_82759878 (FH1 v4 0x826AF10C, exact),
+# and the event class stamp of sub_82743170 (FH1 v4 0x8269B3C4, exact).
+[[midasm_hook]]
+address = 0x8275998C
+name = "LavenderAnyCarEventRestriction"
+registers = ["r25"]
+jump_address_on_true = 0x82759998
+
+[[midasm_hook]]
+address = 0x8274317C
+name = "LavenderAnyCarEventClass"
+registers = ["r4"]
+jump_address_on_true = 0x82743240
+
+# No rubber-banding: just after a spawning AI racer's config (r1+464) is
+# filled in sub_82511790 (FH1 v4 0x82521228, aligned).
+[[midasm_hook]]
+address = 0x82511B18
+name = "LavenderAiSpawnConfig"
+registers = ["r1"]
+

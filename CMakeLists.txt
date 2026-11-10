@@ -30,6 +30,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/save_backups.cpp
     src/fixed_steps.cpp
     src/frame_rate.cpp
+    src/cheats.cpp
     src/gamma_hooks.cpp
     src/guest_native/guest_native.cpp
     src/guest_native/crt_math.cpp

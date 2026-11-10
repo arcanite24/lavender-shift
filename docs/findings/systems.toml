@@ -91,6 +91,26 @@ confidence = """confirmed"""
 source = """docs/PINYON_PARITY.md LP-0.4"""
 
 [[finding]]
+group = """Events"""
+name = """event car restrictions"""
+v2 = """sub_82759878 (restriction reader), decode site 0x8275998C (resumes at 0x82759998); sub_82743170 (class stamp), past its frame setup at 0x8274317C, epilogue 0x82743240"""
+fh1_v4 = """sub_826AEFF8, 0x826AF10C; sub_8269B3B8, 0x8269B3C4"""
+what = """sub_82759878 reads an event's EventRestrictions rows: for each row it sets up a record with no limits, decodes the row's Value into it and adds it. sub_82743170 stamps the event's TargetClass limit (r4 at the hook) into every bucket-0 record. Skipping the decode leaves each record unlimited, and skipping the stamp leaves the class open, so any car may enter (lavender_cheat_any_car_events, on by default)."""
+how = """Mapper: both functions exact against FH1 v4 (Pinyon Shift's any-car hooks at the same instructions). The hooks build and run; not yet seen at an event, which needs a drive to one (LP-0.4)."""
+confidence = """probable"""
+source = """src/cheats.cpp; docs/PINYON_PARITY.md LP-2.14"""
+
+[[finding]]
+group = """Events"""
+name = """AI racer config and rubber-banding"""
+v2 = """0x82511B18 in sub_82511790 (config at r1+464 just filled); filler sub_82B2D6C0"""
+fh1_v4 = """0x82521228 in sub_82520EA0"""
+what = """When an AI racer spawns, sub_82511790 has sub_82B2D6C0 fill a config on its stack from the AISkills and AIRubberbands tables. Floats at +336 and +344 are the distances behind for maximum performance and torque boost, +348 the far-behind torque boost, +360 (u32) the torque-boost cheat level, +416 to +428 the rubber-band and torque-cut distances, +432 the torque-cut factor, +436 and +440 the catch-up start and stop distances, +444 the catch-up factor. Lavender writes Pinyon's "fair" values there (distances out of reach, factors neutral, trailing boosts off) and leaves skill and difficulty alone (lavender_cheat_no_rubber_banding, on by default)."""
+how = """Mapper (aligned) for the site; the filler and the two table readers it calls match FH1 v4's after masking apart from float-constant addresses, so the offsets carry over. Not yet seen in a race (LP-0.4)."""
+confidence = """probable"""
+source = """src/cheats.cpp; config/fh2-symbols.toml [offsets] ai_config.*"""
+
+[[finding]]
 group = """Pause menu"""
 name = """Xbox Live unavailable explanation"""
 v2 = """sub_826CDF40 (vtable slot at 0x82385B08), reached through the delegate thunk sub_826D1EE8; UI message post sub_826A3510"""

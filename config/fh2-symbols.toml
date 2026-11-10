@@ -48,6 +48,10 @@ executable = "default.xex"  # USA disc with TU v2 applied
 "crowd.update_begin" = 0x82F95788         # r29 the procedural models object
 "crowd.step_random" = 0x82F95EC4          # r10 per-frame step, random-clip instances
 "crowd.step_looping" = 0x82F961F0         # r10 per-frame step, looping instances
+"event.restriction_decode" = 0x8275998C   # in sub_82759878: decode a restriction row (r25 event id)
+"event.class_stamp" = 0x82743170          # stamps the event class into bucket-0 records
+"ai.spawn_config_filled" = 0x82511B18     # in sub_82511790: AI racer config at r1+464 filled
+"ai.config_filler" = 0x82B2D6C0           # fills it from AISkills and AIRubberbands
 
 [offsets]
 "render.scenario_skip_shadow" = 0x194      # bool control in each scenario
@@ -64,3 +68,15 @@ executable = "default.xex"  # USA disc with TU v2 applied
 "car.control_mode" = 15400
 "launch_options.engageaionstart" = 3076    # parsed, no reader found
 "launch_options.enableaitoggle" = 3109     # parsed, no reader found
+"ai_config.dist_behind_max_performance" = 336  # float, AI racer config
+"ai_config.dist_behind_torque_boost" = 344
+"ai_config.far_behind_torque_boost" = 348
+"ai_config.torque_boost_cheat_level" = 360     # u32
+"ai_config.start_rubberbanding_distance" = 416
+"ai_config.max_rubberbanding_effect_distance" = 420
+"ai_config.start_torque_cut_distance" = 424
+"ai_config.max_torque_cut_distance" = 428
+"ai_config.torque_cut_factor" = 432
+"ai_config.start_catch_up_distance" = 436
+"ai_config.stop_catch_up_distance" = 440
+"ai_config.catch_up_factor" = 444

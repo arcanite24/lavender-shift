@@ -136,6 +136,7 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
   std::unique_ptr<MenuScreen> Graphics();
   std::unique_ptr<MenuScreen> Audio();
   std::unique_ptr<MenuScreen> Gameplay();
+  std::unique_ptr<MenuScreen> Cheats();
   std::unique_ptr<MenuScreen> Controls();
   std::unique_ptr<MenuScreen> ControllerButtons();
   std::unique_ptr<MenuScreen> MapController();
@@ -491,6 +492,15 @@ std::unique_ptr<MenuScreen> SettingsPages::Gameplay() {
   rows.push_back(Toggle("REPLAY INTRO WHEN IDLE", "lavender_no_attract_video", true));
   rows.push_back(Toggle("PHOTO CAMERA THROUGH WALLS", "lavender_photo_camera_through_walls"));
   return std::make_unique<MenuScreen>("GAMEPLAY", std::move(rows));
+}
+
+// Cheats act on the player's own profile (src/cheats.cpp).
+std::unique_ptr<MenuScreen> SettingsPages::Cheats() {
+  std::vector<MenuRow> rows;
+  rows.push_back(Toggle("ANY CAR IN ANY EVENT", "lavender_cheat_any_car_events"));
+  rows.push_back(Toggle("NO RUBBER-BANDING", "lavender_cheat_no_rubber_banding"));
+  auto note = [] { return std::string("CHANGES APPLY FROM THE NEXT EVENT"); };
+  return std::make_unique<MenuScreen>("CHEATS", std::move(rows), std::move(note));
 }
 
 std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
@@ -1194,6 +1204,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Root() {
   rows.push_back(Page("AUDIO", &SettingsPages::Audio));
   rows.push_back(Page("CONTROLS", &SettingsPages::Controls));
   rows.push_back(Page("GAMEPLAY", &SettingsPages::Gameplay));
+  rows.push_back(Page("CHEATS", &SettingsPages::Cheats));
   if (services_.save_backups) rows.push_back(Page("PROFILE", &SettingsPages::Profile));
   if (services_.quit) {
     MenuRow quit;
