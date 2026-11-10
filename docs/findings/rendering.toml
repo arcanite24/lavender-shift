@@ -112,3 +112,13 @@ what = """Returns a viewport's width / height (r3 the viewport, width at +8, hei
 how = """The mapper did not place it. FH1's eleven instructions occur once in the TU v2 image. The two callers came from the mapper (aligned and exact) and were checked to call the getter. Widening every 1280x720 call but the map's widened the gameplay view in a 21:9 window; widening only the gameplay caller's result did not change the image."""
 confidence = """confirmed"""
 source = """src/wide_view.cpp"""
+
+[[finding]]
+group = """Post effects"""
+name = """lamp and headlight glows draw with depth test ALWAYS"""
+v2 = """(renderer state; no guest address)"""
+fh1_v4 = """(same)"""
+what = """As in FH1, FH2 draws some glows with the depth test left at ALWAYS, so a headlight glow shows through the player car. ShiftGlue's fh1_glow_depth_test (on by default) depth-tests them like the title's other glows; turned off in a replayed free-roam frame, the glow appears on the car's rear window."""
+how = """Frame replay with fh1_glow_depth_test on and off, compared against two baseline replays."""
+confidence = """confirmed"""
+source = """docs/PINYON_PARITY.md LP-4.6"""
