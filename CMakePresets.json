@@ -14,8 +14,8 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_C_FLAGS": "-march=x86-64-v3",
-                "CMAKE_CXX_FLAGS": "-march=x86-64-v3",
+                "CMAKE_C_FLAGS": "-ffp-contract=off -march=x86-64-v3",
+                "CMAKE_CXX_FLAGS": "-ffp-contract=off -march=x86-64-v3",
                 "REXGLUE_USE_VULKAN": "ON"
             },
             "condition": {
@@ -32,8 +32,8 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "clang-20",
                 "CMAKE_CXX_COMPILER": "clang++-20",
-                "CMAKE_C_FLAGS": "-march=x86-64-v3",
-                "CMAKE_CXX_FLAGS": "-march=x86-64-v3"
+                "CMAKE_C_FLAGS": "-ffp-contract=off -march=x86-64-v3",
+                "CMAKE_CXX_FLAGS": "-ffp-contract=off -march=x86-64-v3"
             },
             "condition": {
                 "type": "equals",

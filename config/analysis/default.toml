@@ -17,6 +17,11 @@ ctr_as_local = true
 xer_as_local = true
 interior_resume = false
 direct_calls_bypass_thunk = true
+# Direct calls name the strong `__imp__sub_` definitions; the functions the
+# app replaces with a strong `sub_` of its own must go through the weak
+# thunk instead, or the replacement only sees indirect calls.
+# 0x82B72EA8: the ring-room poll (src/ring_wait.cpp).
+host_overridden_functions = [0x82B72EA8]
 fold_rodata_loads = true
 host_local_register_saves = true
 host_local_lr = true
@@ -872,3 +877,139 @@ size = 0x8
 
 [functions."8322B8C0"]  # FH1 v4 83202270, context
 size = 0x28
+
+# Mid-function hooks (src/*_hooks.cpp). Sites come from Pinyon's FH1 v4
+# hooks through its address mapper; each is checked in FH2 before use.
+
+# The simulation step's delta (f31, seconds) before its store at owner+448
+# (FH1 v4 0x8241DC44, aligned).
+[[midasm_hook]]
+address = 0x823FDEF4
+name = "LavenderObserveSimulationDelta"
+registers = ["f31"]
+
+# Graphics settings (src/graphics_hooks.cpp). Each site's nine instructions
+# match FH1 v4's.
+
+# The frame's bloom scale at r1+264 (FH1 v4 0x82494E44, context).
+[[midasm_hook]]
+address = 0x82474E2C
+name = "LavenderBloomScale"
+registers = ["r1"]
+
+# Motion blur: skip the store of its strength (f8 to r3+80), which runs
+# only while a scene loads; the hook keeps the object for live changes
+# (FH1 v4 0x82E3A924, aligned).
+[[midasm_hook]]
+address = 0x82F0483C
+name = "LavenderDisableMotionBlur"
+registers = ["r3", "f8"]
+jump_address_on_true = 0x82F04840
+
+# Depth of field: r11 = 0 instead of the flag load at each of three
+# decisions (FH1 v4 0x8248AB7C, 0x82487B54, 0x82487B84, aligned).
+[[midasm_hook]]
+address = 0x8246AC34
+name = "LavenderDisableDepthOfField"
+registers = ["r11"]
+jump_address_on_true = 0x8246AC38
+
+[[midasm_hook]]
+address = 0x82467C0C
+name = "LavenderDisableDepthOfField"
+registers = ["r11"]
+jump_address_on_true = 0x82467C10
+
+[[midasm_hook]]
+address = 0x82467C3C
+name = "LavenderDisableDepthOfField"
+registers = ["r11"]
+jump_address_on_true = 0x82467C40
+
+# The camera's vertical field of view returned in f1 (FH1 v4 0x828FF264,
+# context).
+[[midasm_hook]]
+address = 0x829BB414
+name = "LavenderCameraFieldOfView"
+registers = ["f1"]
+
+# After each DynamicRenderSettings control loads from a render scenario's
+# XML: r30 the control, r26 the scenario (src/render_settings.cpp; FH1 v4
+# 0x82E43458, exact).
+[[midasm_hook]]
+address = 0x82F0D058
+name = "LavenderRenderSettingLoaded"
+registers = ["r26", "r30"]
+
+# The time-of-day accessor's entry, r3 the world (src/render_settings.cpp;
+# FH1 v4 0x824B6990, context, same two instructions).
+[[midasm_hook]]
+address = 0x82496DA0
+name = "LavenderObserveWorld"
+registers = ["r3"]
+
+# The render job queue's producer wait, before each yield: wait in host time
+# instead (src/simulation_hooks.cpp; FH1 v4 0x82424FB0, exact, identical).
+[[midasm_hook]]
+address = 0x82405248
+name = "LavenderThrottleRenderJobs"
+registers = ["r1"]
+
+# The swap interrupt's late-swap test: r7 percent late, r8 the previous
+# target vblank, r10 the current count (src/simulation_hooks.cpp; FH1 v4
+# 0x82AABDB4, exact, identical).
+[[midasm_hook]]
+address = 0x82B71844
+name = "LavenderReleaseLateSwap"
+registers = ["r7", "r8", "r10"]
+
+# The XMedia wrapper's decode result in r3: end splash movies there
+# (src/movie_hooks.cpp; FH1 v4 0x82F1F504, exact, identical).
+[[midasm_hook]]
+address = 0x82FEB3DC
+name = "LavenderCompleteOpeningMovie"
+registers = ["r3"]
+
+# The viewport aspect getter's return: f1 width / height of the viewport in
+# r3; the caller (lr) picks the gameplay view (src/wide_view.cpp; FH1 v4
+# 0x8241228C, the same eleven instructions, found by searching for them).
+[[midasm_hook]]
+address = 0x823F2354
+name = "LavenderViewportAspect"
+registers = ["r3", "f1"]
+context = true
+
+# The render thread's idle SleepEx(0, TRUE) call, before it: sleep on a host
+# timer first (src/simulation_hooks.cpp; FH1 v4 0x82616CD0, aligned; the
+# called wrapper maps exactly).
+[[midasm_hook]]
+address = 0x82618530
+name = "LavenderRenderIdleSleep"
+registers = []
+
+# The pause menu's ONLINE ROAD TRIP tile opens the host settings
+# (docs/PINYON_PARITY.md LP-2.11). Offline, a tile that needs Xbox Live
+# calls sub_826CDF40 (through the delegate sub_826D1EE8), which explains why
+# Live is unavailable (UI message 251, FEATURE UNAVAILABLE) and returns true.
+# Its second argument is a request whose second word names the feature (2
+# for ONLINE ROAD TRIP). The hook sits after the frame is set up; true
+# jumps to the epilogue, which returns the byte at r1+124
+# (src/pause_menu_hooks.cpp).
+[[midasm_hook]]
+address = 0x826CDF58
+name = "LavenderLiveUnavailable"
+registers = []
+context = true
+jump_address_on_true = 0x826CE248
+
+# The localized string lookup, sub_82E34E90(table, id): returns the text of
+# a string ID as big-endian UTF-16. For IDS_MultiplayerOption (the pause
+# menu's ONLINE ROAD TRIP tile, ID global 0x834584E4) the hook returns
+# "PC SETTINGS"; true jumps to the epilogue with r3 set
+# (src/pause_menu_hooks.cpp).
+[[midasm_hook]]
+address = 0x82E34EA0
+name = "LavenderStringLookup"
+registers = []
+context = true
+jump_address_on_true = 0x82E34EFC

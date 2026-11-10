@@ -37,9 +37,17 @@ set(REXGLUE_RECOMP_DEBUG_INFO "line-tables-only" CACHE STRING
     "Debug info level for generated code: line-tables-only, full, or none")
 
 # Guest SEH scopes emit __try/__except, which traps hardware faults only under
-# asynchronous EH. clang++ spells that flag the GNU way.
+# asynchronous EH. clang++ spells that flag the GNU way. Codegen emits no SEH
+# scope for FH2 (generate_exception_handlers is off), so the flag is opt-in,
+# as in Pinyon Shift. Generated units also get -fno-strict-aliasing, as the
+# SDK's own sources do: guest memory is read through casts of byte pointers.
+option(LAVENDER_RECOMP_SEH
+    "Compile the generated units for asynchronous (SEH) exceptions" OFF)
 set(REXGLUE_RECOMP_OPTIONS "")
-if(WIN32)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    list(APPEND REXGLUE_RECOMP_OPTIONS -fno-strict-aliasing)
+endif()
+if(WIN32 AND LAVENDER_RECOMP_SEH)
     if(MSVC)
         list(APPEND REXGLUE_RECOMP_OPTIONS /EHa)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

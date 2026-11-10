@@ -22,6 +22,34 @@ include(cmake/rexglue.cmake)
 
 set(LAVENDER_SHIFT_SOURCES
     src/main.cpp
+    src/lavender_shift_app.cpp
+    src/diagnostics.cpp
+    src/crash_reporter_win.cpp
+    src/stall_dump.cpp
+    src/hitch_sampler_win.cpp
+    src/save_backups.cpp
+    src/ring_wait.cpp
+    src/simulation_hooks.cpp
+    src/graphics_hooks.cpp
+    src/render_settings.cpp
+    src/dev_options.cpp
+    src/ai_driver.cpp
+    src/cvar_cycle.cpp
+    src/movie_hooks.cpp
+    src/pause_menu_hooks.cpp
+    src/wide_view.cpp
+    src/ui/photo_export.cpp
+    src/ui/png_writer.cpp
+    src/config/host_config.cpp
+    src/ui/settings_menu.cpp
+    src/ui/hostui/bitmap_font.cpp
+    src/ui/hostui/fh1_archive.cpp
+    src/ui/hostui/glyph_atlas.cpp
+    src/ui/hostui/host_ui.cpp
+    src/ui/hostui/menu.cpp
+    src/ui/hostui/pad_glyphs.cpp
+    src/ui/hostui/vector_font.cpp
+    src/ui/hostui/xds_texture.cpp
 )
 
 if(WIN32)
@@ -33,9 +61,13 @@ endif()
 # The SDK injects rex_app.cpp into the game target; ImGui stays a private SDK
 # dependency, so its headers come from the source tree, and rex/version.h is
 # configured into the SDK's sub-build (as in Pinyon Shift's CMake).
-target_include_directories(lavender_shift PRIVATE "${REXSDK_DIR}/thirdparty/imgui")
+target_include_directories(lavender_shift PRIVATE "${REXSDK_DIR}/thirdparty/imgui"
+    "${REXSDK_DIR}/thirdparty/renderdoc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_property(SOURCE "${REXGLUE_SHARE_DIR}/rex_app.cpp" APPEND PROPERTY
     INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/rexglue-sdk/include")
 
 # rexgpu-fh1 is ShiftGlue's Xenos (PM4) GPU plugin: the Stage 0 path.
 rexglue_setup_target(lavender_shift GPU_PLUGINS fh1)
+# The crash reporter writes minidumps and symbolized stacks.
+target_link_libraries(lavender_shift PRIVATE dbghelp)
