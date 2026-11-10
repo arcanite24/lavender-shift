@@ -153,14 +153,23 @@ Captures stay in `.local/shader-discovery/`.
 
 ShiftGlue now adds screen-space ambient occlusion at swap
 (`swap_ambient_occlusion`, the GRAPHICS menu's AMBIENT OCCLUSION row; off
-by default). It works in two passes:
+by default). It works in three passes:
 
-- **A half-size compute pass** (`src/graphics/vulkan/ambient_occlusion.cpp`
+- **A half-size estimate** (`src/graphics/vulkan/ambient_occlusion.cpp`
   in the SDK). It reads the camera depth snapshot that the upscalers use
   and does a scalable-AO style estimate: 12 samples on a spiral within
-  `swap_ambient_occlusion_radius` metres (default 1). The spiral is turned
-  per pixel by a 4x4 ordered pattern. The pass fades out between 80 and
+  `swap_ambient_occlusion_radius` metres (default 1). Close up, the
+  spiral's spread is capped at 6 % of the screen height. A 4x4 ordered
+  pattern turns the spiral per pixel, and the whole pattern turns by a
+  golden-ratio step each frame. The estimate fades out between 80 and
   200 m.
+- **A half-size history pass.** It blends the estimate with the previous
+  frame's result (15 % new), found through the camera reprojection the
+  upscalers' motion vectors use. History is dropped after a camera cut
+  and where its view z differs by more than 3 %. It is also clamped to
+  the range of this frame's estimate in a 3x3 neighbourhood: without the
+  clamp, the wheels' contact shade stayed on the road behind a moving car
+  (its depth is unchanged) as a row of fading copies.
 - **The scene-only post pass** (`scene_post.cpp`). A 4x4 depth-aware box
   removes the pattern, then the scene colour is darkened by up to
   `swap_ambient_occlusion_strength` percent (40/70/100 in the menu).
