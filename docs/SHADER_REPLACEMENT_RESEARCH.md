@@ -1,8 +1,8 @@
 # Shader replacements
 
 Which FH2 shaders are worth replacing with our own, either for speed or for
-a modern look. This is a plan. No FH2 shader has been measured one by one
-yet: SR-0 below is that measurement, and every candidate waits on it.
+a modern look. SR-0 (below) measured FH2's frame on the RTX 4080; the
+weak-GPU measurement is still to do.
 
 ## What already exists
 
@@ -70,6 +70,45 @@ Already covered elsewhere, so not on this list: anti-aliasing (FXAA, DLSS
 and FSR are host effects: `swap_post_effect`, `present_effect`) and upscaling
 (Pinyon's upscaling backlog).
 
+## SR-0 results (2026-11-10, RTX 4080, free roam at 2x)
+
+- **FH2's post chain is FH1's.** A one-frame discovery capture at 2x
+  shows the same post shaders as Pinyon's, by guest hash, in the same
+  order and with the same targets:
+  - the reductions;
+  - exposure with history;
+  - the bloom downsample and upsample;
+  - the full-size pass `64AEAE9314A0118B`;
+  - the final composite `614588022744BF6B`;
+  - the reflection mip shader `21937679208E59A5`.
+
+  Only the first shader of the velocity pass (`ADD2563BA387C2BF`) is
+  FH2's own. Across the frame, 116 of 148 pixel shaders and 108 of 140
+  vertex shaders are identical to FH1's. So a replacement written for one
+  game can serve the other, with only the translated-hash part of its
+  file name to regenerate.
+- **No AO pass.** Only three groups of draws read the camera depth: the
+  screen-space shadow mask and two in-scene shaders. SR-3 is an
+  addition, not a replacement.
+- **Cost per pixel shader** (`fh1_native_gpu_profile_draws`, mean of six
+  10 s windows):
+
+  | Shader | GPU ms a frame | Draws |
+  | --- | --- | --- |
+  | Final composite `614588022744BF6B` | 0.26 | 2 |
+  | Depth-only draws (no pixel shader) | 0.25 | 101 |
+  | Reflection mips `21937679208E59A5` | 0.22 | 48 |
+  | `539D4A36B27B206D` (scene) | 0.12 | 44 |
+  | Shadow mask `93626E75D17576C5` | 0.10 | 3 |
+  | Full-size pass `64AEAE9314A0118B` | 0.09 | 1 |
+  | Bloom down/upsample, reductions | under 0.05 each | 1-4 each |
+
+  Nothing on this GPU passes a 1 ms gate, so the 1x profile and the
+  knock-outs were not run here. Speed questions wait for a weak GPU
+  (blindvac's UHD 620, where FH1's composite took 6.37 ms).
+
+Captures stay in `.local/shader-discovery/`.
+
 ## SR-0: the measurement
 
 Run it on the scripted save at 60 fps (`--lavender_frame_rate=60`). Never
@@ -94,4 +133,7 @@ run it on the player's save, and never while the player is in the game.
    cvar.
 
 SR-1 is the best first prototype: one shader, same interface, the most
-visible change, and on weak GPUs also the most expensive pass.
+visible change, and on weak GPUs also the most expensive pass. It costs
+0.26 ms a frame on the RTX 4080 at 2x, so a heavier modern tone map
+still fits there. Because the shader is FH1's, the same file can also
+ship in Pinyon Shift.

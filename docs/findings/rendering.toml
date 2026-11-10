@@ -43,6 +43,23 @@ note = """The visual effect has not been compared yet; FH2 uses depth of field m
 source = """src/graphics_hooks.cpp LavenderDisableDepthOfField"""
 
 [[finding]]
+group = """Post effects"""
+name = """post chain shared with FH1"""
+v2 = """GPU only: pixel shaders E17BECBE8BE65806 and AE59F518D522BDD1 (scene colour to 320x192, 64x32, 32x32), ED74D20BC7DFB0F7 (32x32 exposure with history), 4D3934F366930540 (320x192 history), 0732AB80912AE1A0 / D6652B8E4866F16B (bloom downsample to 32x32), 0F5712A5F9D13E62 (upsample back to 320x192), ADD2563BA387C2BF then ECE830AC0333767F (640x360 velocity), 64AEAE9314A0118B (full-size pass over scene colour), 614588022744BF6B (final composite), 21937679208E59A5 (reflection mip chain, 48 draws)"""
+what = """FH2's post chain is FH1's: in a free-roam frame every one of these pixel shaders has the same guest ucode hash as in Pinyon Shift, in the same order with the same target sizes. Only the velocity pass's first shader (ADD2563BA387C2BF) is FH2's own. Pinyon's "640x360 mask" bound by the final composite at slot 5 is, by size, order and the motion-blur finding above, this velocity buffer (probable for FH1). Of the frame's 148 pixel shaders 116 are identical to FH1's (108 of 140 vertex shaders), so a shader replacement keyed on these hashes can serve both games."""
+how = """One-frame Vulkan shader discovery (vulkan_shader_discovery_frame) in free roam at 2x, compared with Pinyon's FH1 shader catalog and post-chain trace."""
+confidence = """confirmed"""
+source = """docs/SHADER_REPLACEMENT_RESEARCH.md SR-0"""
+
+[[finding]]
+group = """Post effects"""
+name = """no ambient occlusion pass"""
+what = """Negative result: FH2 renders no screen-space ambient occlusion. Only three groups of draws sample the camera depth: the screen-space shadow mask (the full-size target, with the 1,024x1,024 shadow map), and two in-scene shaders (594496C0FCCDD4B2, 4981513B72B56776), probably soft particles or water. No pass computes occlusion from depth, so AO would be a new host pass, not a replacement."""
+how = """Every draw in a free-roam discovery frame that samples a 24_8 depth texture."""
+confidence = """confirmed"""
+source = """docs/SHADER_REPLACEMENT_RESEARCH.md SR-0"""
+
+[[finding]]
 group = """Render scenarios"""
 name = """DynamicRenderSettings control load"""
 v2 = """0x82F0D058"""
