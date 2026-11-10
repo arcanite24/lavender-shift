@@ -170,6 +170,9 @@ badges:
   - resolution scale 1-4x, MSAA (4x, 2x, off);
   - anisotropic and trilinear filtering, texture detail, texture size;
   - post-process AA and AA on the HUD;
+  - ambient occlusion (off, low, medium, high; off by default), a pass
+    ShiftGlue adds at swap because FH2 has none
+    (docs/SHADER_REPLACEMENT_RESEARCH.md, SR-3);
   - bloom, motion blur, depth of field, shadows, reflection updates.
 - **AUDIO:** master volume and mute.
 - **CONTROLS:** mouse and keyboard, controller buttons (remap, invert

@@ -574,6 +574,16 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
                           {"FXAA", {{"swap_post_effect", "\"fxaa\""}}},
                           {"FXAA EXTREME", {{"swap_post_effect", "\"fxaa_extreme\""}}}}));
   rows.push_back(Toggle("AA ON THE HUD", "swap_post_effect_scene_only", true));
+  // FH2 has no ambient occlusion pass; ShiftGlue adds one at swap from the
+  // scene depth (SR-3 in docs/SHADER_REPLACEMENT_RESEARCH.md).
+  rows.push_back(Setting("AMBIENT OCCLUSION",
+                         {{"OFF", {{"swap_ambient_occlusion", "false"}}},
+                          {"LOW", {{"swap_ambient_occlusion", "true"},
+                                   {"swap_ambient_occlusion_strength", "40"}}},
+                          {"MEDIUM", {{"swap_ambient_occlusion", "true"},
+                                      {"swap_ambient_occlusion_strength", "70"}}},
+                          {"HIGH", {{"swap_ambient_occlusion", "true"},
+                                    {"swap_ambient_occlusion_strength", "100"}}}}));
   // FH2's own post effects, switched in its code (src/graphics_hooks.cpp).
   rows.push_back(Toggle("BLOOM", "disable_bloom", true));
   rows.push_back(Toggle("MOTION BLUR", "disable_motion_blur", true));

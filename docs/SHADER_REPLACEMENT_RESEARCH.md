@@ -60,7 +60,7 @@ replacement can go in through the existing override path.
 | --- | --- | --- | --- | --- |
 | SR-1 | **Final composite** (FH1's reads scene colour, the small bloom image, a mask, a 16³ grading LUT and the exposure) | A modern tone-map curve (AgX or ACES fit) applied after the game's grading, blue-noise dithering against banding, and the HDR path's paper white | The most visible single shader; on weak GPUs it is also the most expensive one | Same |
 | SR-2 | **Bloom chain** (downsample and blur passes into the small image) | A 13-tap downsample and tent-filter upsample | Less flicker and aliasing in the glow; the chain's sizes stay | Same, per pass |
-| SR-3 | **Ambient occlusion** (none known in FH2) | A new host pass (GTAO or HBAO) over the scene depth, applied before the composite | The flat look players notice; the biggest visual gain on offer | New: a pass ShiftGlue's FH1 executor inserts. Not a replacement, and SDK work |
+| SR-3 | **Ambient occlusion** (FH2 has none) | A new host pass over the scene depth. **Prototype done**, see "SR-3: ambient occlusion" below | The flat look players notice; the biggest visual gain on offer | New: a ShiftGlue pass at swap, not a replacement |
 | SR-4 | **Motion blur** (half-resolution velocity buffer, then the blur) | Tile-max velocity blur with more samples | Smoother blur at high frame rates; the stencil fix stays (STAGE0.md, "Motion blur") | Same |
 | SR-5 | **Depth of field** | A bokeh gather | Photo mode and replays | Same |
 | SR-6 | **The full-size pass before the composite** (FH1's draw 5361 equivalent, if FH2 has one) | A cheaper equivalent with the same output | The one speed candidate above the gate on FH1 (UHD 620) | Same |
@@ -108,6 +108,50 @@ and FSR are host effects: `swap_post_effect`, `present_effect`) and upscaling
   (blindvac's UHD 620, where FH1's composite took 6.37 ms).
 
 Captures stay in `.local/shader-discovery/`.
+
+## SR-3: ambient occlusion (2026-11-10)
+
+ShiftGlue now adds screen-space ambient occlusion at swap
+(`swap_ambient_occlusion`, the GRAPHICS menu's AMBIENT OCCLUSION row; off
+by default). It works in two passes:
+
+- **A half-size compute pass** (`src/graphics/vulkan/ambient_occlusion.cpp`
+  in the SDK). It reads the camera depth snapshot that the upscalers use
+  and does a scalable-AO style estimate: 12 samples on a spiral within
+  `swap_ambient_occlusion_radius` metres (default 1). The spiral is turned
+  per pixel by a 4x4 ordered pattern. The pass fades out between 80 and
+  200 m.
+- **The scene-only post pass** (`scene_post.cpp`). A 4x4 depth-aware box
+  removes the pattern, then the scene colour is darkened by up to
+  `swap_ambient_occlusion_strength` percent (40/70/100 in the menu).
+  Pixels the HUD covers are left alone (pre-HUD snapshot), as FXAA does.
+
+`swap_ambient_occlusion_debug` shows only the occlusion term.
+
+Two things about the depth had to be right:
+
+- The scene is drawn turned 180 degrees, so a screen pixel's depth is at
+  the opposite pixel. Reading it unturned put an upside-down copy of the
+  car in the sky.
+- Both games store depth reversed (1 near), but differently. FH1's
+  matrix gives the usual 0-near depth, and its viewport flips it. FH2's
+  matrix is already reversed: depth = -1.5e-5 + 0.300 / view z, so near
+  is 0.3 m and far 20 km. The camera fits A + B / view z from the
+  matrix's z and w rows and converts a 0-near fit to the stored form, so
+  one formula serves both.
+
+The look, in free roam at 2x on the RTX 4080:
+
+- contact shading under cars and along kerbs;
+- a darker cockpit;
+- depth inside trees and bushes;
+- no change to the sky or the HUD.
+
+The cost is not measured yet. The perf CSV's frame GPU time includes the
+wait for the 60 fps cap, and at that cap AO on and off read 16.30 and
+16.18 ms, within noise. It needs a GPU timestamp around the two passes,
+or a run on blindvac's UHD 620. The default stays off until the player
+has compared it in play.
 
 ## SR-0: the measurement
 

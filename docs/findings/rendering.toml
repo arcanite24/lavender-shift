@@ -60,6 +60,15 @@ confidence = """confirmed"""
 source = """docs/SHADER_REPLACEMENT_RESEARCH.md SR-0"""
 
 [[finding]]
+group = """Camera"""
+name = """reversed depth in the world matrix"""
+v2 = """GPU only: the world's view-projection at vertex constants c128-c131"""
+what = """FH2's world matrix already gives reversed depth: depth = -1.5e-5 + 0.300 / view z (near about 0.3 m, far about 20 km), and the scene's depth buffer stores that value as is (1 near, 0 far). FH1's matrix gives the usual 0-near depth and its viewport flips it, so both store 1 near. As in FH1, the scene is drawn turned 180 degrees, so a screen pixel's depth is at the opposite pixel. FH1's lens formula (near and far from the z and w row lengths) fails on FH2's matrix; fitting A + B / view z from the z and w rows works for both."""
+how = """Matrix rows logged at the world's draws (A and B fitted each frame); ambient occlusion built from the depth snapshot with each of the two conventions, compared in a debug view (only the stored-as-is convention gives occlusion that matches the geometry)."""
+confidence = """confirmed"""
+source = """docs/SHADER_REPLACEMENT_RESEARCH.md SR-3; ShiftGlue src/graphics/vulkan/fh1_camera.cpp"""
+
+[[finding]]
 group = """Render scenarios"""
 name = """DynamicRenderSettings control load"""
 v2 = """0x82F0D058"""
