@@ -21,8 +21,9 @@ direct_calls_bypass_thunk = true
 # app replaces with a strong `sub_` of its own must go through the weak
 # thunk instead, or the replacement only sees indirect calls.
 # 0x82B72EA8: the ring-room poll (src/ring_wait.cpp); 0x82448D90: the CRT
-# pow (src/guest_native/crt_math.cpp).
-host_overridden_functions = [0x82B72EA8, 0x82448D90]
+# pow (src/guest_native/crt_math.cpp); 0x831DDA78: the LZX block decoder
+# (src/guest_native/lzx_decoder.cpp).
+host_overridden_functions = [0x82B72EA8, 0x82448D90, 0x831DDA78]
 fold_rodata_loads = true
 host_local_register_saves = true
 host_local_lr = true

@@ -31,6 +31,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/fixed_steps.cpp
     src/guest_native/guest_native.cpp
     src/guest_native/crt_math.cpp
+    src/guest_native/lzx_decoder.cpp
     src/ring_wait.cpp
     src/simulation_hooks.cpp
     src/graphics_hooks.cpp

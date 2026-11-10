@@ -30,6 +30,7 @@ executable = "default.xex"  # USA disc with TU v2 applied
 "car.set_control_mode" = 0x824FAA98       # (car, mode) 0 player, 1 or 3 AI
 "crt.pow" = 0x82448D90                    # f1 = pow(f1, f2), replaced natively
 "crt.log" = 0x82C04490                    # natural log, pow's exponent-1 path
+"lzx.decode" = 0x831DDA78                 # LZX block decoder, replaced natively
 "ui.live_unavailable" = 0x826CDF40        # (owner, request) FEATURE UNAVAILABLE popup
 "ui.post_message" = 0x826A3510            # (owner, message, payload, flags)
 "ui.string_lookup" = 0x82E34E90           # (table, id) big-endian UTF-16 text

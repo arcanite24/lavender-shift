@@ -119,3 +119,13 @@ what = """FH2 links FH1's CRT pow: 1,252 bytes, 145 direct call sites. Its body 
 how = """Mapper (aligned for pow, context for the log, data pairs for the constants), word-by-word comparison of the bodies and callees, constants checked by value; Pinyon's bit-identical native pow then ran 14.2 million calls in verify mode with no mismatch."""
 confidence = """confirmed"""
 source = """src/guest_native/crt_math.cpp; docs/PINYON_PARITY.md LP-4.3"""
+
+[[finding]]
+group = """CRT"""
+name = """LZX block decoder"""
+v2 = """sub_831DDA78"""
+fh1_v4 = """sub_831B4090"""
+what = """Decodes LZX symbols into the window for the streaming workers. FH2's 1,068 bytes are FH1 v4's except the address of the final copy's byte-select mask (same 16 bytes, at 0x822BF5E0) and the two branches to the register save helpers, so FH1's decoder state layout holds. From boot to two minutes of free roam it ran 9,173 times."""
+how = """Mapper (exact for the function, data pair for the mask), byte comparison; Pinyon's native decoder matched every call in verify mode."""
+confidence = """confirmed"""
+source = """src/guest_native/lzx_decoder.cpp; docs/PINYON_PARITY.md LP-4.3"""
