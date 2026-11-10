@@ -297,6 +297,29 @@ The one remaining long interval is a late frame shown one refresh late,
 not repeated. The title and loading screens render at 120 frames a second,
 one per vblank, and vsync holds them to the display.
 
+## Blurry buildings
+
+Some buildings beside the road in the town draw with a very coarse
+texture, and it never sharpens however long the car waits. Measured on
+multivac with the `user-town` copy of the save, driving the same 5 s
+toward the park:
+
+| Test | Result |
+| --- | --- |
+| World file reads (`media/tracks/Anthem/bin.zip`) | about 150 a 10 s while driving, none failed |
+| Every cached texture marked outdated every 10 s | unchanged: guest memory holds the same data |
+| 2D textures of 256 or less unbound | the whole world goes black, the car stays textured |
+| Mip bias -2, then level 0 forced on every pixel fetch | unchanged: the texture's top level is coarse |
+| `--readback_resolve=full` | unchanged |
+| `--occlusion_query_enable=false` | unchanged |
+
+The emulator delivers what the game asks for, so the coarse texture is
+the game's choice. Most likely it is a distance-LOD model and its atlas
+drawn up close. It has not been compared with real hardware yet. The
+next step is a frame dump and draw bisection to find the building's draw,
+model and texture. Records: `docs/findings/systems.toml`, "open-world
+streaming archive" and "blurry buildings: what it is not".
+
 ## Next
 
 1. Reach a race: drive into an event once and save there (LP-0.4), then

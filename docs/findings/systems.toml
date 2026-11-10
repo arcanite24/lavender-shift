@@ -190,3 +190,23 @@ how = """Mapper (exact), hash check at install."""
 confidence = """confirmed"""
 source = """src/guest_native/voice_chat.cpp"""
 
+
+[[finding]]
+group = """World and time of day"""
+name = """open-world streaming archive"""
+v2 = """File only: media/tracks/Anthem/bin.zip"""
+what = """The open world streams from one 3.1 GB zip with 220,842 entries (compression method 21): model parts (aout.N.rmb.bin, __r*.pgeo), textures (_0xN.bix), zone data (.pvsz), shading data (*__shdata__*.sh), .fiz, .bundle and soundscapes. Each texture is a _0xN.bix whose size is 28 bytes more than a power-of-two multiple of 4 KiB, so it is likely a small header plus the image; 1,535 of about 28,000 textures also have a headerless _0xN_B.bix (4-256 KiB). In free roam the game reads about 150 entries per 10 s (4-5 MB) while driving, all successful; almost none are _B parts (2 in a whole session). Every 2D texture the world binds is 256 x 256 or smaller: unbinding those blacks out roads, terrain and buildings, while the car stays textured."""
+how = """Read probe in XFile::ReadInternal logging offsets in bin.zip, mapped to entries through the zip's central directory; size histogram of the central directory; a texture-cache probe that unbinds small 2D textures."""
+confidence = """probable"""
+note = """What _B holds (a larger base level or a second map) is a guess from sizes; no headers were decoded."""
+source = """docs/STAGE0.md "Blurry buildings""""
+
+[[finding]]
+group = """World and time of day"""
+name = """blurry buildings: what it is not"""
+v2 = """GPU only"""
+what = """Some buildings near the road in the town (night, user-town save) draw with a coarse texture that never sharpens. Each of these left it unchanged: marking every cached texture outdated every 10 s (so it reloads from guest memory), a -2 mip bias, forcing level 0 on every 2D pixel-shader fetch, --readback_resolve=full, and --occlusion_query_enable=false. Large textures' fetch constants have mip_min 0 with the base present, so no GPU-side level clamp exists. File reads complete and already trigger the physical-memory callbacks. So the bound texture's top level itself is coarse: likely a distance-LOD model and its atlas drawn up close, chosen by game logic."""
+how = """Experiments with temporary probes on the same drive, compared by screenshot."""
+confidence = """confirmed"""
+note = """Not compared with real hardware or another emulator, so it may be the game's own LOD. Next step: a frame dump with fh1_debug_skip_draws bisection to find the building's draw, model and texture."""
+source = """docs/STAGE0.md "Blurry buildings""""
