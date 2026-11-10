@@ -1,8 +1,8 @@
 # Shader replacements
 
 Which FH2 shaders are worth replacing with our own, either for speed or for
-a modern look. SR-0 (below) measured FH2's frame on the RTX 4080; the
-weak-GPU measurement is still to do.
+a modern look. SR-0 (below) measured FH2's frame on the RTX 4080 and on
+blindvac's UHD 620.
 
 ## What already exists
 
@@ -104,8 +104,48 @@ and FSR are host effects: `swap_post_effect`, `present_effect`) and upscaling
   | Bloom down/upsample, reductions | under 0.05 each | 1-4 each |
 
   Nothing on this GPU passes a 1 ms gate, so the 1x profile and the
-  knock-outs were not run here. Speed questions wait for a weak GPU
-  (blindvac's UHD 620, where FH1's composite took 6.37 ms).
+  knock-outs were not run here.
+
+## SR-0 on the UHD 620 (2026-11-10, blindvac, free roam at 1x)
+
+FH2 runs at 8.3 fps there (120 ms a frame, all GPU). Every run had 150 s
+of free roam, and the figures are the mean of two 600-frame profile
+windows. On this build device 0 is the UHD 620 and device 1 the 930MX,
+the reverse of Pinyon's order.
+
+| Run | fps | Frame ms (mean / p95) |
+| --- | --- | --- |
+| Default (4x MSAA) | 8.3 | 120.4 / 129.9 |
+| Composite knocked out | 8.8 | 113.8 / 122.7 |
+| MSAA off | 9.6 | 103.8 / 114.7 |
+| MSAA off, composite knocked out | 10.4 | 96.5 / 103.3 |
+
+- **The composite `614588022744BF6B` passes the speed gate.** It costs
+  6.64 ms in 2 draws; FH1 measured 6.37 ms on the same GPU. Knocking it
+  out saves 6.6 ms a frame at 4x and 7.3 ms with MSAA off. MSAA does not
+  change its cost, since it runs at output size. SR-1 is therefore a
+  speed candidate as well as a look one, and a cheaper composite
+  benefits both games.
+- **The scene shader `539D4A36B27B206D`** costs 12.89 ms (147 draws, 10.50
+  with MSAA off). It is a material shader, so it is not a post
+  replacement.
+- **Smaller costs:**
+  - the shadow mask: 1.34 ms (2.08 with MSAA off);
+  - the reflection mips: 1.00 ms;
+  - the full-size pass `64AEAE9314A0118B`: under the profile's top 64
+    (below about 0.5 ms), so SR-6 does not pass the gate on FH2.
+- **By rendering:**
+  - the main scene: 60.4 ms (51.7 with MSAA off);
+  - the composite and HUD: 7.9 ms;
+  - the camera depth: 4.6 ms;
+  - a reflection face: 4.0 ms;
+  - resolves: 11.2 ms;
+  - transfers: 9.1 ms.
+- **Driver crash:** one of five runs crashed inside the Intel driver
+  (`igvk64.dll`) while pipelines were being compiled on several threads.
+  It is not investigated yet.
+
+The run files are in `C:\bench\lavender` on blindvac.
 
 Captures stay in `.local/shader-discovery/`.
 
@@ -179,5 +219,6 @@ run it on the player's save, and never while the player is in the game.
 SR-1 is the best first prototype: one shader, same interface, the most
 visible change, and on weak GPUs also the most expensive pass. It costs
 0.26 ms a frame on the RTX 4080 at 2x, so a heavier modern tone map
-still fits there. Because the shader is FH1's, the same file can also
+still fits there. On the UHD 620 it costs 6.6 ms, so a cheaper version
+is also worth that much there. Because the shader is FH1's, the same file can also
 ship in Pinyon Shift.
