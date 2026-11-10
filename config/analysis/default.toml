@@ -1013,3 +1013,31 @@ name = "LavenderStringLookup"
 registers = []
 context = true
 jump_address_on_true = 0x82E34EFC
+
+# Fixed 30 Hz steps (src/fixed_steps.cpp, LP-3.3). Each site's instruction
+# word matches FH1 v4's; the functions were aligned with the address
+# mapper's normalization (UI camera 97 % identical, crowd 76 %).
+# CUI4AnimatedCamera::Update (FH1 v4 0x826F2968): r31 the camera, f1 its
+# step, about to advance the shot.
+[[midasm_hook]]
+address = 0x8279A368
+name = "LavenderScaleAnimatedCameraStep"
+registers = ["r31", "f1"]
+
+# The crowd animation update (FH1 v4 sub_82ECAB38): r29 the procedural
+# models object after the prologue; then the per-frame step in r10 about to
+# be added to an instance's frame, for random-clip and looping instances.
+[[midasm_hook]]
+address = 0x82F95788
+name = "LavenderCrowdStepBegin"
+registers = ["r29"]
+
+[[midasm_hook]]
+address = 0x82F95EC4
+name = "LavenderCrowdStepRandom"
+registers = ["r10"]
+
+[[midasm_hook]]
+address = 0x82F961F0
+name = "LavenderCrowdStepLooping"
+registers = ["r10"]

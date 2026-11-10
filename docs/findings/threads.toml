@@ -58,3 +58,24 @@ what = """The render thread frame's idle path ends in SleepEx(0, TRUE) when the 
 how = """Mapper (aligned call site, exact wrapper); the call checked to pass r3=0, r4=1; a call counter in the hook log on the free-roam route."""
 confidence = """confirmed"""
 source = """src/simulation_hooks.cpp LavenderRenderIdleSleep"""
+
+[[finding]]
+group = """Pacing"""
+name = """crowd animation steps one frame per rendered frame"""
+v2 = """sub_82F95758; models object r29 at 0x82F95788; step adds at 0x82F95EC4 (random clip) and 0x82F961F0 (looping)"""
+fh1_v4 = """sub_82ECAB38; 0x82ECAB68; 0x82ECB27C and 0x82ECB594"""
+what = """The trackside crowd's animation update runs on the render thread once per rendered frame for each set of crowd models, and adds a step of one animation frame. At 60 frames a second the crowd animates twice as fast as on the console. In free roam it ran 180 times a second (three model sets at 60). Lavender gives each call the whole 30 Hz steps of real time since the same set's previous call (90 steps a second), as Pinyon Shift does."""
+how = """Mapper (context) for the random-clip add; the function aligned with FH1 v4's by the mapper's normalized instructions (76 % identical), each hook site's word identical; call rate measured with lavender_fixed_steps_log."""
+confidence = """confirmed"""
+source = """src/fixed_steps.cpp"""
+
+[[finding]]
+group = """Pacing"""
+name = """UI camera shots advance a fixed 1/30 s step"""
+v2 = """sub_8279A300 (CUI4AnimatedCamera::Update); step in f1 at 0x8279A368"""
+fh1_v4 = """sub_826F2900; 0x826F2968"""
+what = """The scripted UI camera shots (car purchase and reveal in FH1) advance by a constant 1/30 s per update (1/60 under a UI flag), so they play twice as fast at 60 frames a second. Lavender scales the step by the real time since the same camera's previous update."""
+how = """Mapper (aligned); the function is 97 % identical to FH1 v4's, same length, and the hook's word matches."""
+confidence = """probable"""
+note = """Not yet seen running in FH2: free roam and the title screen do not call it."""
+source = """src/fixed_steps.cpp"""

@@ -32,6 +32,10 @@ executable = "default.xex"  # USA disc with TU v2 applied
 "ui.post_message" = 0x826A3510            # (owner, message, payload, flags)
 "ui.string_lookup" = 0x82E34E90           # (table, id) big-endian UTF-16 text
 "ui.ids_multiplayer_option" = 0x834584E4  # string ID global: pause tile ONLINE ROAD TRIP
+"ui.animated_camera_step" = 0x8279A368    # r31 camera, f1 its fixed 1/30 s step
+"crowd.update_begin" = 0x82F95788         # r29 the procedural models object
+"crowd.step_random" = 0x82F95EC4          # r10 per-frame step, random-clip instances
+"crowd.step_looping" = 0x82F961F0         # r10 per-frame step, looping instances
 
 [offsets]
 "render.scenario_skip_shadow" = 0x194      # bool control in each scenario

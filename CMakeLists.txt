@@ -28,6 +28,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/stall_dump.cpp
     src/hitch_sampler_win.cpp
     src/save_backups.cpp
+    src/fixed_steps.cpp
     src/ring_wait.cpp
     src/simulation_hooks.cpp
     src/graphics_hooks.cpp
