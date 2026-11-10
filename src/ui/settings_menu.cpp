@@ -498,7 +498,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Gameplay() {
 std::unique_ptr<MenuScreen> SettingsPages::Cheats() {
   std::vector<MenuRow> rows;
   rows.push_back(Toggle("ANY CAR IN ANY EVENT", "lavender_cheat_any_car_events"));
-  rows.push_back(Toggle("NO RUBBER-BANDING", "lavender_cheat_no_rubber_banding"));
+  rows.push_back(Toggle("NO AI CATCH-UP", "lavender_cheat_no_catch_up"));
   auto note = [] { return std::string("CHANGES APPLY FROM THE NEXT EVENT"); };
   return std::make_unique<MenuScreen>("CHEATS", std::move(rows), std::move(note));
 }

@@ -11,14 +11,17 @@
 //   still added. The event's class is stamped into every bucket-0 record by
 //   sub_82743170 (FH1 v4 sub_8269B3B8, exact): the hook skips from after its
 //   frame is set up to its epilogue.
-// - lavender_cheat_no_rubber_banding: AI racers neither slow down when ahead
-//   nor catch up when behind. Just after FH2 fills a spawning AI racer's
-//   config (TU v2 0x82511B18 in sub_82511790, FH1 v4 0x82521228 in
-//   sub_82520EA0, aligned; the filler sub_82B2D6C0 and the AISkills and
-//   AIRubberbands readers it calls are FH1 v4's after masking), the
-//   rubber-band, torque-cut and catch-up distances move out of reach with
-//   neutral factors and the AI's maximum performance when it trails turns
-//   off. The opponents' skill and difficulty stay as the event sets them.
+// - lavender_cheat_no_catch_up: AI racers behind the player get no help to
+//   catch up. Just after FH2 fills a spawning AI racer's config (TU v2
+//   0x82511B18 in sub_82511790, FH1 v4 0x82521228 in sub_82520EA0, aligned;
+//   the filler sub_82B2D6C0 and the AISkills and AIRubberbands readers it
+//   calls are FH1 v4's after masking), the catch-up distances move out of
+//   reach with a neutral factor, and the maximum skill and torque boost an
+//   AI gets when it trails turn off. The stock rubber band stays: an AI far
+//   ahead still eases off (torque cut or a mistake). Removing that half too
+//   (Pinyon's "fair") left leaders out of reach and trailing AI far behind
+//   once passed, which played worse. Skill and difficulty stay as the event
+//   sets them.
 
 #include <atomic>
 #include <cstdint>
@@ -39,9 +42,9 @@ REXCVAR_DEFINE_BOOL(lavender_cheat_any_car_events, true, "Cheats",
                     "Any car can enter any event: the event's car and class restrictions "
                     "are not applied")
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
-REXCVAR_DEFINE_BOOL(lavender_cheat_no_rubber_banding, true, "Cheats",
-                    "AI racers neither slow down when ahead nor catch up when behind (applies "
-                    "to the AI racers spawned from then on)")
+REXCVAR_DEFINE_BOOL(lavender_cheat_no_catch_up, true, "Cheats",
+                    "AI racers behind the player get no help to catch up; leaders still ease "
+                    "off as in the stock game (applies to the AI racers spawned from then on)")
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
 
 namespace {
@@ -90,27 +93,24 @@ bool LavenderAnyCarEventClass(PPCRegister& r4) {
 // TU v2 0x82511B18 (FH1 v4 0x82521228): the AI racer's config at r1+464 has
 // just been filled. Offsets from the AISkills and AIRubberbands readers.
 void LavenderAiSpawnConfig(PPCRegister& r1) {
-  if (!REXCVAR_GET(lavender_cheat_no_rubber_banding)) return;
+  if (!REXCVAR_GET(lavender_cheat_no_catch_up)) return;
   const uint32_t config = r1.u32 + 464;
   if (!guest::Readable(config, 452)) return;
   constexpr float kOutOfReach = 100000.0f;
-  guest::StoreF32(config + 336, 0.0f);                // DistBehindForMaxPerformance: off
-  guest::StoreF32(config + 344, 0.0f);                // DistBehindForTorqueBoost: off
-  guest::StoreF32(config + 348, 1.0f);                // FarBehindTorqueBoost: none
-  guest::StoreU32(config + 360, 0);                   // TorqueBoostCheatLevel
-  guest::StoreF32(config + 416, kOutOfReach);         // StartRubberbandingDistance
-  guest::StoreF32(config + 420, kOutOfReach);         // MaxRubberbandingEffectDistance
-  guest::StoreF32(config + 424, kOutOfReach);         // StartTorqueCutDistance
-  guest::StoreF32(config + 428, kOutOfReach + 1.0f);  // MaxTorqueCutDistance
-  guest::StoreF32(config + 432, 0.0f);                // TorqueCutFactor
-  guest::StoreF32(config + 436, kOutOfReach);         // StartCatchUpDistance
-  guest::StoreF32(config + 440, kOutOfReach);         // StopCatchUpDistance
-  guest::StoreF32(config + 444, 0.0f);                // CatchUpFactor
+  // Trailing help. The rubber band at +416 to +432 (an AI ahead easing off)
+  // is left as the event set it.
+  guest::StoreF32(config + 336, 0.0f);         // DistBehindForMaxPerformance: off
+  guest::StoreF32(config + 344, 0.0f);         // DistBehindForTorqueBoost: off
+  guest::StoreF32(config + 348, 1.0f);         // FarBehindTorqueBoost: none
+  guest::StoreU32(config + 360, 0);            // TorqueBoostCheatLevel
+  guest::StoreF32(config + 436, kOutOfReach);  // StartCatchUpDistance
+  guest::StoreF32(config + 440, kOutOfReach);  // StopCatchUpDistance
+  guest::StoreF32(config + 444, 0.0f);         // CatchUpFactor
   static std::atomic<uint32_t> spawned{0};
   const uint32_t count = spawned.fetch_add(1, std::memory_order_relaxed);
   if (count < 32) {
     lavender_shift::diagnostics::RecordEvent(
         "cheat.applied",
-        {{"name", "lavender_cheat_no_rubber_banding"}, {"config", fmt::format("{:08X}", config)}});
+        {{"name", "lavender_cheat_no_catch_up"}, {"config", fmt::format("{:08X}", config)}});
   }
 }

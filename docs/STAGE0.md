@@ -178,7 +178,7 @@ badges:
   `src/config/default_keys.h`).
 - **GAMEPLAY:** voice-over skip, automatic car reset, the attract video,
   the photo camera through walls.
-- **CHEATS:** any car in any event and no rubber-banding, both on by
+- **CHEATS:** any car in any event and no AI catch-up, both on by
   default on the player's own profile; a change applies from the next
   event.
 - **PROFILE:** save backups, and a restore chosen from them at the next

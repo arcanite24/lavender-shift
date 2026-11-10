@@ -1097,7 +1097,7 @@ name = "LavenderAnyCarEventClass"
 registers = ["r4"]
 jump_address_on_true = 0x82743240
 
-# No rubber-banding: just after a spawning AI racer's config (r1+464) is
+# No AI catch-up: just after a spawning AI racer's config (r1+464) is
 # filled in sub_82511790 (FH1 v4 0x82521228, aligned).
 [[midasm_hook]]
 address = 0x82511B18
