@@ -122,3 +122,13 @@ what = """As in FH1, FH2 draws some glows with the depth test left at ALWAYS, so
 how = """Frame replay with fh1_glow_depth_test on and off, compared against two baseline replays."""
 confidence = """confirmed"""
 source = """docs/PINYON_PARITY.md LP-4.6"""
+
+[[finding]]
+group = """Post effects"""
+name = """gamma ramp rebuilt every frame"""
+v2 = """sub_82DAF4F8 (ramp builder), sub_82B748F8 (D3D SetPWLGamma)"""
+fh1_v4 = """sub_82CE8948, sub_82AAEE68"""
+what = """As in FH1, the gamma ramp is rebuilt from the same settings and sent to the device on every frame (600 times in 10 s of free roam at 60 fps), and SetPWLGamma converts it and finds the device's copy (+15408) unchanged. Rebuilding took 23 us and the device call 7.7 us a frame on the RTX 4080 desktop's CPU; reusing the ramp and skipping the unchanged call saves both. The builder's paths and register use match FH1 v4's (only two float constant addresses moved), and SetPWLGamma is identical."""
+how = """Mapper (aligned, every hook site at FH1's offset), body comparison; hook counts and timings with lavender_gamma_log, both switches off and on."""
+confidence = """confirmed"""
+source = """src/gamma_hooks.cpp; docs/PINYON_PARITY.md LP-4.3"""

@@ -1043,3 +1043,37 @@ registers = ["r10"]
 address = 0x82F961F0
 name = "LavenderCrowdStepLooping"
 registers = ["r10"]
+
+# The gamma ramp builder sub_82DAF4F8 (FH1 v4 sub_82CE8948, aligned; every
+# site at FH1's offset in the function; src/gamma_hooks.cpp): at the start
+# of each ramp format's path, a ramp built from the same arguments is put
+# back on the stack and the hook jumps to the device call; at the device
+# call (SetPWLGamma) a newly built ramp is kept, and the call is skipped
+# when it would change nothing.
+[[midasm_hook]]
+address = 0x82DAF540
+name = "LavenderGammaRampPwlBegin"
+context = true
+jump_address_on_true = 0x82DAF718
+
+[[midasm_hook]]
+address = 0x82DAF718
+name = "LavenderGammaRampPwlBuilt"
+context = true
+jump_address_on_true = 0x82DAF71C
+
+[[midasm_hook]]
+address = 0x82DAF71C
+name = "LavenderGammaRampPwlDeviceSet"
+context = true
+
+[[midasm_hook]]
+address = 0x82DAF720
+name = "LavenderGammaRampLinearBegin"
+context = true
+jump_address_on_true = 0x82DAF848
+
+[[midasm_hook]]
+address = 0x82DAF848
+name = "LavenderGammaRampLinearBuilt"
+context = true
