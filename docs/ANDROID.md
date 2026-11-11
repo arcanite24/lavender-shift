@@ -118,3 +118,25 @@ and the game using about 2.2 CPU cores. With MSAA off the GPU is about
 frame in the main scene pass and 1.6 ms in resolves, and shows about 100
 render passes a frame, most ended by uploads and resolves; on a tiled GPU
 each break stores and reloads its targets, the next place to look.
+
+### Start and load times
+
+From launch to free roam with the save took about 85 seconds on the Odin
+2 Portal (game on the SD card), against about 8 on a Windows PC. Off-CPU
+profiles (`simpleperf record --trace-offcpu`, the app is profileable)
+found two costs in ShiftGlue's host folder device, both cheap on Windows
+and slow on Android, where app storage sits behind FUSE:
+
+- At mount it walked and stat'ed the whole game folder (about 2,900
+  entries): 11.9 seconds of every launch. Folders now list their entries
+  the first time the game looks in them; mounting takes 7 ms.
+- For every name it could not find, it stat'ed the name and listed the
+  folder again to look for a casing difference. FH2's loader workers probe
+  for missing files often enough that these rescans took about 44 seconds
+  of the load, and serialised the workers on the folder tree's lock. A
+  miss in a folder already listed (and so compared without case) is now
+  final.
+
+With both, launch to free roam takes 16 seconds (three launches, 16.0 to
+16.5). Lifting the frame rate limit during the load changed nothing: the
+load is not paced by frames.
