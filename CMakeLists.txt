@@ -82,3 +82,12 @@ set_property(SOURCE "${REXGLUE_SHARE_DIR}/rex_app.cpp" APPEND PROPERTY
 rexglue_setup_target(lavender_shift GPU_PLUGINS fh1)
 # The crash reporter writes minidumps and symbolized stacks.
 target_link_libraries(lavender_shift PRIVATE dbghelp)
+
+# The archive helper tools/prepare_shaders.ps1 uses (method-21 ZIP members
+# and the patched XEX image), built with the game by tools/build.ps1.
+add_executable(lavender_shift_archive_extract EXCLUDE_FROM_ALL
+    tools/archive_extract.cpp
+    src/archive/fh_archive.cpp
+)
+target_include_directories(lavender_shift_archive_extract PRIVATE src)
+target_link_libraries(lavender_shift_archive_extract PRIVATE rex::runtime)

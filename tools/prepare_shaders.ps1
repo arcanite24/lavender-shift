@@ -2,8 +2,8 @@
 param(
     # Player data whose cache receives the pipelines. Defaults to .local/user.
     [string]$UserRoot = '',
-    # Pinyon Shift's archive helper (method-21 ZIP members and XEX images);
-    # Lavender does not build its own yet.
+    # The archive helper (method-21 ZIP members and XEX images) that
+    # tools/build.ps1 builds beside the game.
     [string]$ArchiveExtractor = '',
     # Rebuild even when the record says the file is current.
     [switch]$Force
@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 if (-not $UserRoot) { $UserRoot = Join-Path $root '.local/user' }
 if (-not $ArchiveExtractor) {
-    $ArchiveExtractor = Join-Path (Split-Path -Parent $root) 'horizon1-recomp/out/build/win-amd64-release/pinyon_shift_fh1_archive_extract.exe'
+    $ArchiveExtractor = Join-Path $root 'out/build/win-amd64-release/lavender_shift_archive_extract.exe'
 }
 $python = Join-Path $root '.local/toolchain/python-3.13.15/python.exe'
 $catalog = Join-Path $root 'config/aot-pipelines.json'
