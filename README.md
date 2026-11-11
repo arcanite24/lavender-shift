@@ -9,30 +9,45 @@ update v2 applied. Performance comes first; see
 You need your own disc image and title update. Nothing from the game is in
 this repository.
 
-## Stage 0 reference build (Windows)
+## Playing (Windows)
 
-This is the measuring baseline: FH2 on today's ShiftGlue with its existing
-PM4 path.
+You need Windows 10 2004 or newer (x64), a Vulkan GPU, 30 GB free, your
+own Forza Horizon 2 USA disc image and the title update v2 package.
 
-1. Link the toolchain. `.local/toolchain` is a junction to Pinyon Shift's
-   pinned toolchain (LLVM 20.1.8, CMake 3.31.10, Ninja 1.13.2). The Visual
-   Studio Build Tools provide the Windows SDK and CRT. Never delete `.local`
-   recursively: it follows the junction.
-2. Lay out the game:
+1. Extract the release ZIP into a folder with a short path, for example
+   `C:\Games\LavenderShift`.
+2. Start `LavenderShiftLauncher.exe`, choose the disc image and the title
+   update, and press **Set up**. The launcher downloads the pinned build
+   tools (and the Visual Studio Build Tools if the PC has none), extracts
+   your files and builds the game on your PC. The first setup takes about
+   an hour; it continues where it stopped if interrupted.
+3. Press **Play**. Settings are in the game's F6 menu.
 
-   ```powershell
-   $py = '.local/toolchain/python-3.13.15/python.exe'
-   & $py -I tools/lavender_setup.py disc   '<FH2 USA disc>.iso'
-   & $py -I tools/lavender_setup.py update '<FH2 title update v2>.zip'
-   & $py -I tools/lavender_setup.py codegen
-   ```
+Saves and settings live in `user` beside the launcher. To update, extract
+a newer release into the same folder and run setup again: it rebuilds what
+changed and keeps your extracted files and saves.
 
-3. Build and run:
+## Building from a checkout (Windows)
 
-   ```powershell
-   .\tools\build.ps1
-   .\tools\launch.ps1
-   ```
+`tools/setup-release.ps1` is what the launcher runs, and works the same in
+a checkout:
+
+```powershell
+.\tools\setup-release.ps1 -IsoPath '<FH2 USA disc>.iso' -UpdatePath '<FH2 title update v2>.zip'
+.\tools\launch.ps1
+```
+
+It provisions the tools pinned in `config/release-toolchain.json` into
+`.local/toolchain` (`tools/provision-toolchain.ps1`), prepares ShiftGlue
+(`tools/prepare-rexglue.ps1`), extracts the disc and update
+(`tools/lavender_setup.py`, which accepts only the supported files),
+generates the translation and builds (`tools/build.ps1`). Each step skips
+work already done, so after code changes `.\tools\build.ps1` alone is
+enough. A failure writes `.local/logs/setup-error.json`. Never delete
+`.local` recursively if it holds junctions.
+
+`tools/package-release.ps1` builds the release ZIP (the launcher plus a
+`git archive` of HEAD) and refuses files that look like game data.
 
 `config/analysis` holds the codegen facts: `default.toml` is carried from
 Pinyon Shift's FH1 analysis, and `thunks-*.toml` lists function-pointer
