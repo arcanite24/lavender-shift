@@ -11,7 +11,7 @@ jobs:
   checks:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Repository boundary
         shell: powershell
         run: ./tools/check-repository-boundary.ps1
@@ -27,7 +27,7 @@ jobs:
           if ($failed) { exit 1 }
       - name: Python tools compile
         run: python -m py_compile (Get-ChildItem tools -Filter *.py).FullName
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
       - name: Launcher builds

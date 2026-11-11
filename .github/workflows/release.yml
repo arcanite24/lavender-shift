@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Prepare the toolchain
@@ -48,7 +48,7 @@ jobs:
             ./tools/build-shiftglue-kit.ps1 -BuildRoot (Join-Path $env:RUNNER_TEMP 'kit') `
               -Output (Join-Path $output "shiftglue-kit-$revision-windows-x64.zip")
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: prebuilt-windows
           path: .artifacts/prebuilt/
@@ -60,11 +60,11 @@ jobs:
     needs: [prebuilt-windows]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           name: prebuilt-windows
