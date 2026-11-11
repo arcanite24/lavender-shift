@@ -19,7 +19,8 @@ public sealed class ScriptRunner
     public event Action<ProgressEvent>? Progress;
     public event Action<string>? Output;
 
-    public async Task<int> RunAsync(string script, IEnumerable<string> arguments, string workingDirectory)
+    public async Task<int> RunAsync(string script, IEnumerable<string> arguments, string workingDirectory,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var info = new ProcessStartInfo
         {
@@ -37,6 +38,8 @@ public sealed class ScriptRunner
         // modules (Get-FileHash is "not recognized"). Without the variable
         // Windows PowerShell builds its default.
         info.Environment.Remove("PSModulePath");
+        if (environment is not null)
+            foreach (var (name, value) in environment) info.Environment[name] = value;
         foreach (var argument in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script })
             info.ArgumentList.Add(argument);
         foreach (var argument in arguments) info.ArgumentList.Add(argument);

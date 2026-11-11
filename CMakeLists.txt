@@ -72,16 +72,60 @@ endif()
 # The SDK injects rex_app.cpp into the game target; ImGui stays a private SDK
 # dependency, so its headers come from the source tree, and rex/version.h is
 # configured into the SDK's sub-build (as in Pinyon Shift's CMake).
-target_include_directories(lavender_shift PRIVATE "${REXSDK_DIR}/thirdparty/imgui"
-    "${REXSDK_DIR}/thirdparty/renderdoc"
+target_include_directories(lavender_shift PRIVATE "${LAVENDER_SHIFT_SDK_SOURCE_DIR}/thirdparty/imgui"
+    "${LAVENDER_SHIFT_SDK_SOURCE_DIR}/thirdparty/renderdoc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src")
-set_property(SOURCE "${REXGLUE_SHARE_DIR}/rex_app.cpp" APPEND PROPERTY
-    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/rexglue-sdk/include")
+if(REXSDK_DIR)
+    set_property(SOURCE "${REXGLUE_SHARE_DIR}/rex_app.cpp" APPEND PROPERTY
+        INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/rexglue-sdk/include")
+endif()
 
 # rexgpu-fh1 is ShiftGlue's Xenos (PM4) GPU plugin: the Stage 0 path.
 rexglue_setup_target(lavender_shift GPU_PLUGINS fh1)
 # The crash reporter writes minidumps and symbolized stacks.
 target_link_libraries(lavender_shift PRIVATE dbghelp)
+
+# The game and the SDK's DLLs use the Visual C++ runtime DLLs. Copies sit
+# beside the game (Microsoft's app-local deployment), so it starts on a PC
+# without the matching redistributable, as in Pinyon Shift. The developer
+# prompt sets VCToolsRedistDir; a prebuilt kit carries the runtime its DLLs
+# were built against, and the newer of the two serves both (Microsoft keeps
+# it backward compatible). The fetched sysroot has no runtime, so there the
+# kit's is the only one.
+if(WIN32 AND DEFINED ENV{VCToolsRedistDir})
+    set(LAVENDER_SHIFT_VC_REDIST_DIR "$ENV{VCToolsRedistDir}" CACHE PATH
+        "Visual C++ redistributable folder of the build toolset")
+endif()
+if(WIN32 AND (LAVENDER_SHIFT_VC_REDIST_DIR OR LAVENDER_SHIFT_SHIFTGLUE_KIT))
+    set(LAVENDER_SHIFT_VC_RUNTIME_DLLS)
+    if(LAVENDER_SHIFT_VC_REDIST_DIR)
+        file(GLOB LAVENDER_SHIFT_VC_RUNTIME_DLLS
+            "${LAVENDER_SHIFT_VC_REDIST_DIR}/x64/Microsoft.VC*.CRT/*.dll")
+    endif()
+    if(LAVENDER_SHIFT_SHIFTGLUE_KIT AND NOT REXSDK_DIR AND
+       EXISTS "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/redist")
+        string(JSON _lavender_kit_toolset GET "${_lavender_kit}" msvc_toolset)
+        if(NOT LAVENDER_SHIFT_VC_RUNTIME_DLLS OR
+           _lavender_kit_toolset VERSION_GREATER "$ENV{VCToolsVersion}")
+            file(GLOB LAVENDER_SHIFT_VC_RUNTIME_DLLS "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/redist/*.dll")
+        endif()
+        string(REGEX MATCH "^[0-9]+\\.[0-9]+" _lavender_kit_runtime "${_lavender_kit_toolset}")
+        string(REGEX MATCH "^[0-9]+\\.[0-9]+" _lavender_headers "$ENV{VCToolsVersion}")
+        if(NOT LAVENDER_SHIFT_VC_REDIST_DIR AND _lavender_headers AND
+           _lavender_kit_runtime VERSION_LESS _lavender_headers)
+            message(WARNING "The kit's C++ runtime (${_lavender_kit_toolset}) is older than "
+                "the C++ library this build compiles against ($ENV{VCToolsVersion}).")
+        endif()
+    endif()
+    if(LAVENDER_SHIFT_VC_RUNTIME_DLLS)
+        add_custom_target(lavender_shift_stage_vc_runtime ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${LAVENDER_SHIFT_VC_RUNTIME_DLLS} "$<TARGET_FILE_DIR:lavender_shift>"
+            DEPENDS lavender_shift ${LAVENDER_SHIFT_VC_RUNTIME_DLLS}
+            COMMENT "Staging the Visual C++ runtime beside lavender_shift"
+            VERBATIM)
+    endif()
+endif()
 
 # The archive helper tools/prepare_shaders.ps1 uses (method-21 ZIP members
 # and the patched XEX image), built with the game by tools/build.ps1.

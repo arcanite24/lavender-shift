@@ -8,3 +8,4 @@ out/
 # Launcher build output.
 launcher/**/bin/
 launcher/**/obj/
+__pycache__/

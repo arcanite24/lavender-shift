@@ -110,13 +110,18 @@ function Invoke-Logged {
 # there). glslang reads the older PYTHON_EXECUTABLE.
 $python = Get-LavenderPython
 $pythonCMake = $python.Replace('\', '/')
-$generator = Join-Path $sdk 'out/win-amd64/Release/rexglue.exe'
+# RL-10: a prebuilt ShiftGlue kit for the pinned revision (setup installs it
+# in .local/shiftglue-kit) replaces the generator build and the SDK sub-build.
+# It is a Release build, so other configurations compile the source tree.
+$kit = if ($Configuration -eq 'Release') { Get-LavenderShiftGlueKitRoot } else { $null }
+$generator = if ($kit) { Join-Path $kit 'bin/rexglue.exe' } else { Join-Path $sdk 'out/win-amd64/Release/rexglue.exe' }
 $manifest = Join-Path $root 'lavender_shift_manifest.toml'
 
 $buildEnvironment = Enter-LavenderBuildEnvironment
 $cmake = $buildEnvironment.CMake
 
-if ($Step -in @('generator', 'all')) {
+if ($kit) { Write-Host "[generator] using the prebuilt ShiftGlue kit: $kit" }
+elseif ($Step -in @('generator', 'all')) {
     $manifestFlag = '-Xlinker "/MANIFESTINPUT:' + ((Join-Path $root 'config/codegen-windows.manifest') -replace '\\', '/') + '"'
     Push-Location $sdk
     try {
@@ -143,11 +148,20 @@ if ($Step -in @('codegen', 'all')) {
 
 if ($Step -in @('game', 'all')) {
     $preset = 'win-amd64-' + $Configuration.ToLowerInvariant()
+    $sdkArguments = if ($kit) { @('-DREXSDK_DIR=', "-DLAVENDER_SHIFT_SHIFTGLUE_KIT=$kit") }
+        else { @("-DREXSDK_DIR=$sdk", '-DLAVENDER_SHIFT_SHIFTGLUE_KIT=') }
+    # A tree configured for the other SDK source keeps targets of the old one
+    # in its cache; configure it afresh.
+    $cache = Join-Path $root "out/build/$preset/CMakeCache.txt"
+    if (Test-Path -LiteralPath $cache) {
+        $usedKit = [bool](Select-String -LiteralPath $cache -Pattern '^LAVENDER_SHIFT_SHIFTGLUE_KIT:PATH=.+' -Quiet)
+        if ($usedKit -ne [bool]$kit) { Remove-Item -LiteralPath $cache -Force }
+    }
     Push-Location $root
     try {
-        Invoke-Logged 'game-configure' $cmake -Event @{ Percent = 66; Message = 'Configuring the game build.' } -Arguments @('--preset', $preset, "-DREXSDK_DIR=$sdk",
+        Invoke-Logged 'game-configure' $cmake -Event @{ Percent = 66; Message = 'Configuring the game build.' } -Arguments (@('--preset', $preset) + $sdkArguments + @(
             '-DREXGLUE_ENABLE_TRACY=OFF', '-DSDL_HIDAPI_LIBUSB=OFF',
-            "-DPython3_EXECUTABLE=$pythonCMake", "-DPYTHON_EXECUTABLE=$pythonCMake")
+            "-DPython3_EXECUTABLE=$pythonCMake", "-DPYTHON_EXECUTABLE=$pythonCMake"))
         Invoke-Logged 'game-build' $cmake -Event @{ Percent = 70; To = 95; Message = 'Compiling the game, the longest step.' } -Arguments @('--build', '--preset', $preset, '--parallel', "$Parallel")
         # The archive helper the AOT pipeline preparation reads the disc with.
         Invoke-Logged 'archive-tool-build' $cmake -Arguments @('--build', '--preset', $preset,

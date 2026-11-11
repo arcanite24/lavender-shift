@@ -102,6 +102,31 @@ public sealed class InstallLayout
         return payloadHash = Convert.ToHexString(SHA256.HashData(stream));
     }
 
+    /// <summary>Whether this release pins a prebuilt ShiftGlue kit (RL-10).
+    /// Only then can setup use Microsoft's C++ libraries fetched by xwin in
+    /// place of the Build Tools, so only then does the launcher offer it.</summary>
+    public bool PinsPrebuiltKit()
+    {
+        const string entry = "config/release-toolchain.json";
+        try
+        {
+            string json;
+            if (Payload is not null)
+            {
+                using var archive = ZipFile.OpenRead(Payload);
+                var config = archive.GetEntry(entry);
+                if (config is null) return false;
+                using var reader = new StreamReader(config.Open());
+                json = reader.ReadToEnd();
+            }
+            else json = File.ReadAllText(Path.Combine(SourceRoot, entry));
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.TryGetProperty("shiftglue_kit", out var kits) &&
+                kits.TryGetProperty("windows-x64", out _);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException) { return false; }
+    }
+
     /// <summary>An earlier setup finished, but the payload beside the exe is
     /// newer than the source it built.</summary>
     public bool IsReadyExceptSource() => Payload is not null && File.Exists(SetupStatePath) && !SourceIsCurrent();
@@ -129,6 +154,7 @@ public sealed class LauncherSettings
     public string? DiscImage { get; set; }
     public string? TitleUpdate { get; set; }
     public bool OwnershipConfirmed { get; set; }
+    public bool MicrosoftLicenseAccepted { get; set; }
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 

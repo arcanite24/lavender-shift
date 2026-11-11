@@ -298,7 +298,7 @@ function Get-LavenderVisualStudioRoot {
     $root
 }
 
-# TP-4 (docs/TIME_TO_PLAY_BACKLOG.md): the Microsoft C++ libraries (CRT and
+# RL-10 (after Pinyon Shift's TP-4): the Microsoft C++ libraries (CRT and
 # STL) and the Windows SDK headers and import libraries, fetched by xwin from
 # Microsoft's own Visual Studio packages after the player accepts Microsoft's
 # license. A build from the prebuilt ShiftGlue kit needs nothing else from the
@@ -997,11 +997,9 @@ function Assert-LavenderFreeSpace {
     }
 }
 
-# Reachability of the hosts the remaining downloads need, checked once before
-# the first download so a proxy, firewall or offline PC is named up front
-# instead of failing one tool at a time (#393).
-# TP-2/TP-3: the prebuilt ShiftGlue kit for the pinned revision, when the
-# toolchain config names one (config/release-toolchain.json shiftglue_kit).
+# RL-10 (after Pinyon Shift's TP-2/TP-3): the prebuilt ShiftGlue kit for the
+# pinned revision, when the toolchain config names one
+# (config/release-toolchain.json shiftglue_kit, pinned by a release).
 # A kit for another revision is ignored: the build then uses the source tree.
 # LAVENDER_SHIFT_SOURCE_SDK=1 forces the source tree.
 function Get-LavenderShiftGlueKitEntry {
@@ -1050,58 +1048,12 @@ function Install-LavenderShiftGlueKit {
     }
     Get-LavenderShiftGlueKitRoot
 }
-# TP-3 host split: the release's prebuilt host objects for a variant (base or
-# v4), pinned like the kit by tools/apply-prebuilt-pins.py.
-function Get-LavenderHostObjectsEntry {
-    param([Parameter(Mandatory)] [ValidateSet('base', 'v4')] [string]$Variant)
-    $config = Get-LavenderReleaseToolchain
-    $all = $config.PSObject.Properties['host_objects']
-    if ($null -eq $all) { return $null }
-    $platform = $all.Value.PSObject.Properties['windows-x64']
-    if ($null -eq $platform) { return $null }
-    $entry = $platform.Value.PSObject.Properties[$Variant]
-    if ($null -eq $entry -or $entry.Value.revision -ne $config.rexglue.revision) { return $null }
-    $entry.Value
-}
-# Downloads and unpacks them for a build from the kit. Returns the folder to
-# pass as LAVENDER_SHIFT_HOST_OBJECTS, or '' to compile the host code here: the
-# game build also checks their fingerprint and falls back on its own.
-function Install-LavenderHostObjects {
-    param([Parameter(Mandatory)] [ValidateSet('base', 'v4')] [string]$Variant)
-    $entry = Get-LavenderHostObjectsEntry -Variant $Variant
-    if ($null -eq $entry -or $null -eq (Get-LavenderShiftGlueKitRoot)) { return '' }
-    $target = Resolve-LavenderLocalPath -RelativePath ".local/host-objects/$Variant"
-    $stamp = Join-Path $target '.asset-sha256'
-    if ((Test-Path -LiteralPath $stamp -PathType Leaf) -and
-        (Get-Content -LiteralPath $stamp -Raw).Trim() -eq $entry.sha256) {
-        return $target
-    }
-    $staging = "$target-staging"
-    try {
-        $archive = Resolve-LavenderLocalPath -RelativePath ".local/downloads/$(Split-Path ([Uri]$entry.url).AbsolutePath -Leaf)"
-        Invoke-LavenderDownload -Uri $entry.url -Destination $archive -Sha256 $entry.sha256
-        Remove-LavenderTree -Path $staging
-        Expand-LavenderZip -Archive $archive -Destination $staging
-        $children = @(Get-ChildItem -LiteralPath $staging -Directory)
-        if ($children.Count -ne 1) { throw 'The host objects archive layout is not recognized.' }
-        Remove-LavenderTree -Path $target
-        Move-Item -LiteralPath $children[0].FullName -Destination $target
-        Remove-LavenderTree -Path $staging
-        Set-Content -LiteralPath $stamp -Value $entry.sha256 -Encoding ascii
-    }
-    catch {
-        Write-Warning "The prebuilt host objects could not be installed; compiling the host code instead. $($_.Exception.Message)"
-        return ''
-    }
-    $target
-}
-
 # A repacked tool archive (tools/repack-toolchain.py) holds each binary once and
-# lists its other names in pinyon-links.json; make those names hard links (no
+# lists its other names in lavender-links.json; make those names hard links (no
 # extra disk), or copies where the volume has none.
 function Install-LavenderToolLinks {
     param([Parameter(Mandatory)] [string]$Root)
-    $list = Join-Path $Root 'pinyon-links.json'
+    $list = Join-Path $Root 'lavender-links.json'
     if (-not (Test-Path -LiteralPath $list -PathType Leaf)) { return }
     $links = Get-Content -LiteralPath $list -Raw | ConvertFrom-Json
     foreach ($property in $links.PSObject.Properties) {
@@ -1112,6 +1064,9 @@ function Install-LavenderToolLinks {
         catch { Copy-Item -LiteralPath $target -Destination $link -Force }
     }
 }
+# Reachability of the hosts the remaining downloads need, checked once before
+# the first download so a proxy, firewall or offline PC is named up front
+# instead of failing one tool at a time.
 function Assert-LavenderDownloadHosts {
     param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]]$Uris)
     # Only network downloads: a developer's local mirror (a path) needs no check.
@@ -1158,7 +1113,7 @@ function Enter-LavenderBuildEnvironment {
     $config = Get-LavenderReleaseToolchain
     $sysroot = if (Test-LavenderUseMsvcSysroot) { Get-LavenderMsvcSysroot } else { $null }
     if ($sysroot) {
-        # TP-4: no Build Tools; the fetched CRT and Windows SDK instead.
+        # RL-10: no Build Tools; the fetched CRT and Windows SDK instead.
         $vsRoot = ''
         $env:INCLUDE = $sysroot.Include -join ';'
         $env:LIB = $sysroot.Lib -join ';'

@@ -4,15 +4,23 @@ param(
     [string]$OutputDirectory = '',
     # Package the committed HEAD even with uncommitted changes (they are not
     # included either way: the payload is always HEAD).
-    [switch]$AllowDirty
+    [switch]$AllowDirty,
+    # RL-10: a folder of prebuilt assets (tools/repack-toolchain.py and
+    # tools/build-shiftglue-kit.ps1 outputs with their .json sidecars) and the
+    # URL they are published under. The payload's toolchain config then pins
+    # them, so setup downloads them instead of building ShiftGlue and
+    # unpacking the full LLVM release.
+    [string]$PrebuiltAssets = '',
+    [string]$ReleaseBaseUrl = ''
 )
 
 # RL-5: builds LavenderShift-<version>-windows-x64.zip:
 #   LavenderShiftLauncher.exe   single-file, self-contained launcher
 #   lavender-shift-source.zip   the committed source tree (git archive of HEAD)
-# The payload holds source only. ShiftGlue is cloned by setup at the pinned
-# revision (config/release-toolchain.json), and the player's disc supplies
-# every game file. The audit below refuses console executables, disc images
+# The payload holds source only. Setup downloads the prebuilt ShiftGlue kit
+# and trimmed LLVM the payload's config pins (-PrebuiltAssets), or clones
+# ShiftGlue at the pinned revision without them, and the player's disc
+# supplies every game file. The audit below refuses console executables, disc images
 # and large binaries so game data cannot slip into a release.
 
 Set-StrictMode -Version Latest
@@ -48,6 +56,22 @@ if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -For
 $payload = Join-Path $work 'lavender-shift-source.zip'
 git -C $root archive --format=zip --output=$payload $commit -- . ':(exclude)launcher'
 if ($LASTEXITCODE) { throw 'git archive failed' }
+if ([bool]$PrebuiltAssets -ne [bool]$ReleaseBaseUrl) { throw 'Pass -PrebuiltAssets and -ReleaseBaseUrl together.' }
+if ($PrebuiltAssets) {
+    $configEntry = 'config/release-toolchain.json'
+    $pinned = Join-Path $work 'release-toolchain.json'
+    $archive = [IO.Compression.ZipFile]::Open($payload, 'Update')
+    try {
+        $entry = $archive.GetEntry($configEntry)
+        [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $pinned)
+        python -I (Join-Path $PSScriptRoot 'apply-prebuilt-pins.py') --config $pinned --assets $PrebuiltAssets `
+            --base-url $ReleaseBaseUrl | Out-Host
+        if ($LASTEXITCODE) { throw 'Pinning the prebuilt assets failed' }
+        $entry.Delete()
+        [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $pinned, $configEntry)
+    }
+    finally { $archive.Dispose() }
+}
 
 $blocked = '\.(iso|xex|xexp|xcp|stfs|god|bin|zip|7z|rar|bik|xma|xpr|dds|xds|fbo)$'
 $archive = [IO.Compression.ZipFile]::OpenRead($payload)

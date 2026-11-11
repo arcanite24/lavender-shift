@@ -9,16 +9,66 @@ permissions:
   contents: write
 
 jobs:
+  # RL-10 (docs/RELEASE_BACKLOG.md): the trimmed LLVM and the ShiftGlue kit,
+  # built here and attached to the release. The package job pins whatever
+  # was built in the payload's toolchain config; setup builds from source
+  # when an asset is missing, so a failed prebuilt job slows first setup
+  # down but does not block the release.
+  prebuilt-windows:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Prepare the toolchain
+        shell: powershell
+        run: ./tools/provision-toolchain.ps1
+      - name: Build the trimmed LLVM and the ShiftGlue kit
+        shell: powershell
+        env:
+          # rexruntime.dll links NVIDIA's static NGX (DLSS) loader, so a
+          # published kit is a binary release of it. Pinyon Shift publishes
+          # its kit under NVIDIA's approval for that project; this switch
+          # holds Lavender Shift's back until the maintainer confirms the
+          # same for it (docs/LEGAL.md). The LLVM repack is published either way.
+          PUBLISH_KIT: ${{ vars.LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT }}
+        run: |
+          . ./tools/release-common.ps1
+          $config = Get-LavenderReleaseToolchain
+          $output = Resolve-LavenderLocalPath -RelativePath '.artifacts/prebuilt'
+          [void](New-Item -ItemType Directory -Force -Path $output)
+          & (Get-LavenderPython) -I tools/repack-toolchain.py llvm --platform windows-x64 `
+            --source (Resolve-LavenderLocalPath -RelativePath $config.llvm.install_path) `
+            --version $config.llvm.version `
+            --output (Join-Path $output "llvm-$($config.llvm.version)-lavender1-windows-x64.zip")
+          if ($LASTEXITCODE -ne 0) { throw 'LLVM repack failed' }
+          if ($env:PUBLISH_KIT -eq 'true') {
+            $revision = $config.rexglue.revision.Substring(0, 12)
+            ./tools/build-shiftglue-kit.ps1 -BuildRoot (Join-Path $env:RUNNER_TEMP 'kit') `
+              -Output (Join-Path $output "shiftglue-kit-$revision-windows-x64.zip")
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prebuilt-windows
+          path: .artifacts/prebuilt/
+
   # RL-7: the tag's launcher ZIP (launcher plus a git archive of the tagged
-  # commit) and its SHA-256, attached to a draft release. Publishing the
-  # draft stays a manual step.
+  # commit, with the prebuilt assets pinned) and its SHA-256, attached to a
+  # draft release with those assets. Publishing the draft stays a manual step.
   package:
+    needs: [prebuilt-windows]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: prebuilt-windows
+          path: .artifacts/prebuilt
       - name: Repository boundary
         shell: powershell
         run: ./tools/check-repository-boundary.ps1
@@ -26,7 +76,12 @@ jobs:
         id: package
         shell: powershell
         run: |
-          $result = ./tools/package-release.ps1 -OutputDirectory out/release
+          $arguments = @{ OutputDirectory = 'out/release' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and (Test-Path .artifacts/prebuilt/*.json)) {
+            $arguments.PrebuiltAssets = '.artifacts/prebuilt'
+            $arguments.ReleaseBaseUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME"
+          }
+          $result = ./tools/package-release.ps1 @arguments
           $result | Format-List | Out-Host
           $version = 'v' + $result.version
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $version) {
@@ -41,5 +96,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $zip = '${{ steps.package.outputs.zip }}'
-          $notes = "SHA-256 of $([IO.Path]::GetFileName($zip)): ${{ steps.package.outputs.sha256 }}`n`nYou need your own Forza Horizon 2 USA disc image and title update v2. See the README for setup."
-          gh release create '${{ steps.package.outputs.version }}' $zip "$zip.sha256" --draft --title 'Lavender Shift ${{ steps.package.outputs.version }}' --notes $notes
+          # The prebuilt assets the payload pins; their .json sidecars stay out.
+          $assets = @(Get-ChildItem .artifacts/prebuilt -File -ErrorAction SilentlyContinue |
+            Where-Object Extension -ne '.json' | ForEach-Object FullName)
+          $notes = "SHA-256 of $([IO.Path]::GetFileName($zip)): ${{ steps.package.outputs.sha256 }}`n`nYou need your own Forza Horizon 2 USA disc image and title update v2, and a CPU with AVX2 (Intel Haswell, AMD Zen or newer). See the README for setup."
+          gh release create '${{ steps.package.outputs.version }}' $zip "$zip.sha256" @assets --draft --title 'Lavender Shift ${{ steps.package.outputs.version }}' --notes $notes

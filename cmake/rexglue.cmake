@@ -8,9 +8,46 @@ set(REXSDK_VERSION "" CACHE STRING "Override SDK version (leave empty for defaul
 
 # Find SDK
 set(REXSDK_DIR "" CACHE PATH "Path to rexglue-sdk source tree")
+set(LAVENDER_SHIFT_SHIFTGLUE_KIT "" CACHE PATH "Unpacked prebuilt ShiftGlue kit")
 if(REXSDK_DIR)
     add_subdirectory("${REXSDK_DIR}" rexglue-sdk)
     message(STATUS "Using ReXGlue SDK from source tree: ${REXSDK_DIR}")
+    set(LAVENDER_SHIFT_SDK_SOURCE_DIR "${REXSDK_DIR}")
+elseif(LAVENDER_SHIFT_SHIFTGLUE_KIT)
+    # RL-10 (docs/RELEASE_BACKLOG.md): the prebuilt ShiftGlue kit
+    # (tools/build-shiftglue-kit.ps1) instead of the source tree, as in Pinyon
+    # Shift. It holds the generator, the runtime and graphics backend with
+    # their CMake package, and the few SDK headers the game compiles against.
+    # It must be built from the pinned ShiftGlue revision.
+    if(NOT EXISTS "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/kit.json")
+        message(FATAL_ERROR "${LAVENDER_SHIFT_SHIFTGLUE_KIT} is not an unpacked ShiftGlue kit.")
+    endif()
+    file(READ "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/kit.json" _lavender_kit)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/config/release-toolchain.json" _lavender_toolchain)
+    string(JSON _lavender_kit_revision GET "${_lavender_kit}" shiftglue_revision)
+    string(JSON _lavender_pinned_revision GET "${_lavender_toolchain}" rexglue revision)
+    if(NOT _lavender_kit_revision STREQUAL _lavender_pinned_revision)
+        message(FATAL_ERROR
+            "The ShiftGlue kit was built from ${_lavender_kit_revision}, but "
+            "config/release-toolchain.json pins ${_lavender_pinned_revision}.")
+    endif()
+    set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/kit.json")
+    find_package(rexglue CONFIG REQUIRED NO_DEFAULT_PATH PATHS "${LAVENDER_SHIFT_SHIFTGLUE_KIT}")
+    set(LAVENDER_SHIFT_SDK_SOURCE_DIR "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/share/rexglue/source")
+    # The upscaler runtimes are vendor binaries no release ships
+    # (docs/LEGAL.md): the kit's copies of the SDK's fetch modules download
+    # them here, pinned and hashed, as a source build does.
+    foreach(_lavender_module IN ITEMS rexglue_ffx_api_headers rexglue_dlss)
+        set(_lavender_module "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/share/rexglue/cmake/${_lavender_module}.cmake")
+        if(WIN32 AND EXISTS "${_lavender_module}")
+            include("${_lavender_module}")
+        endif()
+    endforeach()
+    if(REXGLUE_FFX_RUNTIME_DLL)
+        set(REXGLUE_FFX_LICENSE "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/share/rexglue/upscalers/fidelityfx/LICENSE.txt")
+    endif()
+    message(STATUS "Using the prebuilt ShiftGlue kit: ${LAVENDER_SHIFT_SHIFTGLUE_KIT}")
 else()
     if(REXSDK_VERSION)
         find_package(rexglue ${REXSDK_VERSION} EXACT QUIET CONFIG)

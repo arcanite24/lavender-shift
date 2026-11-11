@@ -5,9 +5,11 @@ param([switch]$JsonEvents)
 # hashed downloads, into .local/toolchain; the Microsoft C++ Build Tools are
 # installed (one administrator prompt) when no usable Visual Studio exists.
 # Adapted from Pinyon Shift's tools/provision-toolchain.ps1, without its
-# prebuilt-kit, sysroot and extract-xiso paths: Lavender reads the disc
-# image itself (tools/lavender_setup.py) and always builds ShiftGlue from
-# source.
+# extract-xiso path: Lavender reads the disc image itself
+# (tools/lavender_setup.py). A release pins prebuilt pieces in its copy of
+# the config (tools/apply-prebuilt-pins.py, RL-10): a trimmed LLVM, the
+# ShiftGlue kit, and with the kit the Microsoft C++ libraries fetched by
+# xwin in place of the Build Tools.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -24,14 +26,25 @@ $downloads = Resolve-LavenderLocalPath -RelativePath '.local/downloads'
 Write-LavenderEvent tools 18 'Checking the Windows build environment.' -JsonEvents:$JsonEvents
 $vsRoot = Get-LavenderVisualStudioRoot -AllowMissing
 # Only the hosts of downloads still to come: a provisioned PC builds offline.
-$pending = @(foreach ($name in @('git', 'xz', 'llvm', 'python', 'cmake', 'ninja')) {
+# With a prebuilt ShiftGlue kit nothing is cloned, so Git is fetched only if
+# the kit fails and setup falls back to the source tree.
+$kitPinned = $null -ne (Get-LavenderShiftGlueKitEntry)
+$names = @('git', 'xz', 'llvm', 'python', 'cmake', 'ninja') | Where-Object { -not ($kitPinned -and $_ -eq 'git') }
+$pending = @(foreach ($name in $names) {
     $tool = $config.$name
     if (-not (Test-Path -LiteralPath (Join-Path (Join-Path $root $tool.install_path) $tool.executable) -PathType Leaf)) {
         $tool.url
     }
 })
-if ([string]::IsNullOrWhiteSpace($vsRoot)) { $pending += $config.visual_studio.bootstrap_url }
-if (-not (Test-Path -LiteralPath (Join-Path (Resolve-LavenderRexGlueRoot) 'CMakeLists.txt') -PathType Leaf)) {
+# With a prebuilt kit and the player's acceptance of Microsoft's license,
+# xwin fetches the Microsoft C++ libraries and the Windows SDK instead of the
+# Build Tools install (Test-LavenderUseMsvcSysroot).
+$useSysroot = Test-LavenderUseMsvcSysroot
+if ($useSysroot) {
+    if ($null -eq (Get-LavenderMsvcSysroot)) { $pending += @($config.msvc_sysroot.xwin.url, 'https://aka.ms/') }
+}
+elseif ([string]::IsNullOrWhiteSpace($vsRoot)) { $pending += $config.visual_studio.bootstrap_url }
+if (-not $kitPinned -and -not (Test-Path -LiteralPath (Join-Path (Resolve-LavenderRexGlueRoot) 'CMakeLists.txt') -PathType Leaf)) {
     $pending += $config.rexglue.repository
 }
 Assert-LavenderDownloadHosts -Uris $pending
@@ -109,7 +122,11 @@ function Invoke-BuildToolsInstaller {
 }
 
 $restartPending = $false
-if ([string]::IsNullOrWhiteSpace($vsRoot)) {
+if ($useSysroot) {
+    Write-LavenderEvent tools 20 'Fetching the Microsoft C++ libraries and the Windows SDK from Microsoft (about 770 MB, once).' -JsonEvents:$JsonEvents
+    Install-LavenderMsvcSysroot -AcceptMicrosoftLicense:($env:LAVENDER_SHIFT_ACCEPT_MICROSOFT_LICENSE -eq '1')
+}
+elseif ([string]::IsNullOrWhiteSpace($vsRoot)) {
     Write-LavenderEvent tools 20 'Microsoft C++ Build Tools are required. Windows may ask for administrator permission.' -JsonEvents:$JsonEvents
     $bootstrap = Get-BuildToolsBootstrapper
     $restartPending = Invoke-BuildToolsInstaller -Arguments "-Bootstrapper `"$bootstrap`"" `
@@ -117,8 +134,10 @@ if ([string]::IsNullOrWhiteSpace($vsRoot)) {
     $vsRoot = Get-LavenderVisualStudioRoot
 }
 
-Write-LavenderEvent tools 23 'Preparing Git.' -JsonEvents:$JsonEvents
-Install-LavenderGit
+if (-not $kitPinned) {
+    Write-LavenderEvent tools 23 'Preparing Git.' -JsonEvents:$JsonEvents
+    Install-LavenderGit
+}
 
 Write-LavenderEvent tools 26 'Preparing the pinned LLVM compiler.' -JsonEvents:$JsonEvents
 $xzRoot = [IO.Path]::GetFullPath((Join-Path $root $config.xz.install_path))
@@ -134,14 +153,20 @@ if (-not (Test-Path -LiteralPath $xzExe -PathType Leaf)) {
 $llvmRoot = [IO.Path]::GetFullPath((Join-Path $root $config.llvm.install_path))
 $llvmExe = Join-Path $llvmRoot $config.llvm.executable
 if (-not (Test-Path -LiteralPath $llvmExe -PathType Leaf)) {
-    $archive = Join-Path $downloads "llvm-$($config.llvm.version).tar.xz"
+    # A release pins the trimmed repack (tools/repack-toolchain.py, about a
+    # tenth of the download), a zip that lists the tools' other names in
+    # lavender-links.json. The full LLVM release (.tar.xz) unpacks as before.
+    $zipped = $config.llvm.url -match '\.zip$'
+    $archive = Join-Path $downloads ("llvm-$($config.llvm.version)" + $(if ($zipped) { '.zip' } else { '.tar.xz' }))
     Invoke-LavenderDownload -Uri $config.llvm.url -Destination $archive -Sha256 $config.llvm.sha256
     $staging = Resolve-LavenderLocalPath -RelativePath ".local/toolchain/llvm-$($config.llvm.version)-staging"
     if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
     [void](New-Item -ItemType Directory -Force -Path $staging)
-    Expand-LavenderTarXz -Archive $archive -Destination $staging -XzPath $xzExe
+    if ($zipped) { Expand-LavenderZip -Archive $archive -Destination $staging }
+    else { Expand-LavenderTarXz -Archive $archive -Destination $staging -XzPath $xzExe }
     $children = @(Get-ChildItem -LiteralPath $staging -Directory)
     if ($children.Count -ne 1) { throw 'The LLVM archive layout is not recognized.' }
+    Install-LavenderToolLinks -Root $children[0].FullName
     if (Test-Path -LiteralPath $llvmRoot) { Remove-Item -LiteralPath $llvmRoot -Recurse -Force }
     Move-Item -LiteralPath $children[0].FullName -Destination $llvmRoot
     Remove-Item -LiteralPath $staging -Recurse -Force
@@ -196,7 +221,8 @@ try {
 catch {
     $kind = $_.Exception.Data['error_kind']
     if ($restartPending) { throw (New-RestartRequiredFailure) }
-    if ($kind -ne 'toolchain-capability') { throw }
+    # A fetched sysroot has no installer to repair it with.
+    if ($kind -ne 'toolchain-capability' -or $useSysroot) { throw }
     Write-LavenderEvent tools 21 'Updating Visual Studio and adding the Windows SDK the build needs. Windows may ask for administrator permission.' -JsonEvents:$JsonEvents
     $bootstrap = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\setup.exe'
     if (-not (Test-Path -LiteralPath $bootstrap -PathType Leaf)) { $bootstrap = Get-BuildToolsBootstrapper }
@@ -209,9 +235,9 @@ catch {
         throw
     }
 }
-$git = Get-LavenderGit
+$git = if ($kitPinned) { '' } else { Get-LavenderGit }
 foreach ($required in @(
-    @{ Name = 'Git'; Path = $git },
+    $(if (-not $kitPinned) { @{ Name = 'Git'; Path = $git } })
     @{ Name = 'XZ'; Path = $xzExe },
     @{ Name = 'CMake'; Path = $environment.CMake },
     @{ Name = 'Ninja'; Path = $environment.Ninja },

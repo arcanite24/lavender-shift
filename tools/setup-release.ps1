@@ -90,7 +90,15 @@ try {
 
     Write-LavenderEvent tools 5 'Preparing the build tools. Nothing from your game is uploaded.' -JsonEvents:$JsonEvents
     & (Join-Path $PSScriptRoot 'provision-toolchain.ps1') -JsonEvents:$JsonEvents | Out-Host
-    & (Join-Path $PSScriptRoot 'prepare-rexglue.ps1') -JsonEvents:$JsonEvents | Out-Host
+    # RL-10: a release pins the prebuilt ShiftGlue kit; without one, or when
+    # it cannot be fetched, ShiftGlue is cloned and built from source.
+    $kitRoot = Get-LavenderShiftGlueKitRoot
+    if (-not $kitRoot -and $null -ne (Get-LavenderShiftGlueKitEntry)) {
+        Write-LavenderEvent tools 33 'Downloading the prebuilt recompiler and runtime.' -JsonEvents:$JsonEvents
+        $kitRoot = Install-LavenderShiftGlueKit
+        if (-not $kitRoot) { Install-LavenderGit }
+    }
+    if (-not $kitRoot) { & (Join-Path $PSScriptRoot 'prepare-rexglue.ps1') -JsonEvents:$JsonEvents | Out-Host }
 
     if (Test-Extracted -Catalog (Join-Path $gameRoot 'disc-catalog.json') -Source $iso) {
         Write-LavenderEvent extract 40 'Your game files are already extracted.' -JsonEvents:$JsonEvents

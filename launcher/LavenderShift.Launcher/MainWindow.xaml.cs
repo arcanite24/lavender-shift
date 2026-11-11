@@ -69,6 +69,11 @@ public partial class MainWindow : Window
         SetDisc(settings.DiscImage);
         SetUpdate(settings.TitleUpdate);
         OwnershipCheckBox.IsChecked = settings.OwnershipConfirmed;
+        if (layout.PinsPrebuiltKit())
+        {
+            MicrosoftLicenseCheckBox.Visibility = Visibility.Visible;
+            MicrosoftLicenseCheckBox.IsChecked = settings.MicrosoftLicenseAccepted;
+        }
         BuildLocationRun.Text = layout.SourceRoot;
         if (layout.InstallRoot.Length > 90)
             BuildLocationNoteRun.Text = " · needs 30 GB free; a shorter folder such as C:\\Games\\LavenderShift avoids path-length build errors";
@@ -289,6 +294,9 @@ public partial class MainWindow : Window
         settings.DiscImage = discPath;
         settings.TitleUpdate = updatePath;
         settings.OwnershipConfirmed = OwnershipCheckBox.IsChecked == true;
+        var acceptMicrosoftLicense = MicrosoftLicenseCheckBox.Visibility == Visibility.Visible &&
+            MicrosoftLicenseCheckBox.IsChecked == true;
+        settings.MicrosoftLicenseAccepted = acceptMicrosoftLicense;
         settings.Save(layout.SettingsPath);
 
         HideFailure();
@@ -312,7 +320,10 @@ public partial class MainWindow : Window
             Directory.CreateDirectory(layout.UserRoot);
             var code = await runner.RunAsync(layout.Tool("setup-release.ps1"),
                 ["-IsoPath", discPath!, "-UpdatePath", updatePath!, "-UserRoot", layout.UserRoot, "-JsonEvents"],
-                layout.SourceRoot);
+                layout.SourceRoot,
+                acceptMicrosoftLicense
+                    ? new Dictionary<string, string> { ["LAVENDER_SHIFT_ACCEPT_MICROSOFT_LICENSE"] = "1" }
+                    : null);
             runner = null;
             if (code == 0 && layout.IsReady())
             {
