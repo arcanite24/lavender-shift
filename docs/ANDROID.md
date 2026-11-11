@@ -42,7 +42,15 @@ app's external files folders (internal storage, then each SD card) whose
 `game/disc/default.xex` exists, with `game/disc`, `game/update` and `user`
 in it, and passes the same flags `tools/launch.ps1` passes on Windows.
 Extra flags go in `user/config/android-arguments.txt` (one per line) or after
-`run`, and a string extra `env.NAME` sets an environment variable.
+`run`, and a string extra `env.NAME` sets an environment variable. A later
+`--name=value` replaces an earlier one: the game's parser would otherwise
+reject the repeated option and apply none of the arguments.
+
+A new settings file on Android starts at 1x with 2x MSAA, reflections
+updated every fourth frame (REFLECTION UPDATES QUARTER), no sun shadows,
+bilinear presentation and 60 fps, the cheapest settings measured to hold
+60 fps on a Snapdragon 8 Gen 2 ([results](#results)). A settings file
+copied from a PC keeps its own values; pick them in the GRAPHICS page.
 
 ## GPU drivers
 
@@ -79,3 +87,34 @@ V39 and its patched build load, render the same scene correctly and run
 within 5 % of V37. The differences follow the draw count, and per draw
 neither is faster, so V37 stays the bundled default. A fixed route (same
 traffic, same time of day) would settle the remaining few percent.
+
+### Holding 60 fps on the Odin 2 Portal
+
+Settings were compared inside one run each (`--lavender_cvar_cycle`
+switching them every 20 seconds, alternating, the first 3 seconds of each
+window dropped), standing at the save's start point, so heat and traffic
+affect both sides alike. GPU time is corrected for the draw count, which
+traffic moves by ±20 % (about 0.33 ms per 100 draws). Once the frame
+holds 60 fps, the Adreno's governor stretches the GPU's work over the
+frame, so the GPU's own busy share (`/sys/class/kgsl/kgsl-3d0`, sampled
+every second) and the game's CPU time (`/proc/<pid>/stat`) measure the
+headroom better than GPU milliseconds.
+
+| Change | Effect | Kept |
+|---|---|---|
+| MSAA 4x → 2x | −1.4 ms GPU at about 1,700 draws | 2x |
+| MSAA 2x → off | −1.9 ms GPU at about 1,700 draws; at the 60 fps settings, 69 % GPU busy against 76 % | 2x, for its edges |
+| REFLECTION UPDATES FULL → QUARTER | −0.75 ms GPU | quarter |
+| SHADOWS off (day only) | −0.3 ms GPU | off |
+| Bloom off | no change | on |
+| Coarse shading 1x2, 2x1 or 2x2 on the main pass (`fh1_coarse_shading`, `vulkan_fragment_shading_rate`) | no change (±0.05 ms): the main pass is not limited by pixel shading at 1x | off |
+| `gpu_record_thread` | no change: 2.2 CPU cores, the same frame times | off (the default) |
+
+With 2x MSAA, quarter reflections and no shadows, the game holds 60 fps
+at the start point: 16.67 ms average, 16.8 ms at the 95th percentile,
+0.0 to 0.5 % of frames over 17.5 ms, the GPU 75 to 80 % busy at 680 MHz
+and the game using about 2.2 CPU cores. With MSAA off the GPU is about
+69 % busy. A GPU profile (`--fh1_native_gpu_profile`) puts 70 % of the
+frame in the main scene pass and 1.6 ms in resolves, and shows about 100
+render passes a frame, most ended by uploads and resolves; on a tiled GPU
+each break stores and reloads its targets, the next place to look.
