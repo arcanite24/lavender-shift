@@ -232,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     kit.add_argument("--source", required=True, type=Path)
     kit.add_argument("--output", required=True, type=Path, help=".zip or .tar.xz")
     kit.add_argument("--top", default="shiftglue-kit")
-    kit.add_argument("--kind", default="kit", choices=["kit"])
+    kit.add_argument("--kind", default="kit", choices=["kit", "apk-shell"])
     args = parser.parse_args(argv)
     return {"llvm": repack_llvm, "kit": repack_kit}[args.command](args)
 

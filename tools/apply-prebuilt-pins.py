@@ -23,7 +23,7 @@ import json
 import sys
 from pathlib import Path
 
-PLATFORMS = ("windows-x64",)
+PLATFORMS = ("windows-x64", "android-arm64")
 
 
 def sha256(path: Path) -> str:
@@ -56,11 +56,14 @@ def apply(config: dict, assets: Path, base_url: str) -> list[str]:
             item["url"] = url
             item["sha256"] = digest
             item["repacked"] = True
-        elif kind == "kit":
+        elif kind in ("kit", "apk-shell"):
             if meta.get("revision") != revision:
                 raise SystemExit(f"{asset.name} was built from ShiftGlue {meta.get('revision')}, "
                                  f"but the config pins {revision}")
-            config.setdefault("shiftglue_kit", {})[platform] = {
+            # The Android shell (tools/lavender_android.py shell) goes in
+            # android_shell, which the Android build reads.
+            key = "android_shell" if kind == "apk-shell" else "shiftglue_kit"
+            config.setdefault(key, {})[platform] = {
                 "revision": revision, "url": url, "sha256": digest}
         else:
             raise SystemExit(f"{sidecar.name}: unknown kind {kind}")

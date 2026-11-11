@@ -53,11 +53,42 @@ jobs:
           name: prebuilt-windows
           path: .artifacts/prebuilt/
 
+  # The Android shell (tools/lavender_android.py shell): ShiftGlue built for
+  # Android, libadrenotools' hooks, and the app's linked resources and
+  # classes.dex, as Pinyon Shift's TP-5. With it a player's Android build
+  # compiles only the game's code and needs only the NDK (no JDK). Nothing
+  # game-derived.
+  prebuilt-android:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install the pinned Android packages and Ninja
+        run: |
+          packages=$(python3 -c "import json; print(' '.join(json.load(open('config/android-toolchain.json'))['android_sdk']['packages']))")
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install $packages > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+      - name: Build the Android shell
+        run: |
+          revision=$(python3 -c "import json; print(json.load(open('config/release-toolchain.json'))['rexglue']['revision'][:12])")
+          python3 tools/lavender_android.py shell --jobs 4 \
+            --output ".artifacts/prebuilt/android-shell-$revision-android-arm64.tar.xz"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prebuilt-android
+          path: .artifacts/prebuilt/
+
   # RL-7: the tag's launcher ZIP (launcher plus a git archive of the tagged
   # commit, with the prebuilt assets pinned) and its SHA-256, attached to a
   # draft release with those assets. Publishing the draft stays a manual step.
   package:
-    needs: [prebuilt-windows]
+    needs: [prebuilt-windows, prebuilt-android]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -72,7 +103,8 @@ jobs:
       - uses: actions/download-artifact@v7
         continue-on-error: true
         with:
-          name: prebuilt-windows
+          pattern: prebuilt-*
+          merge-multiple: true
           path: ${{ runner.temp }}/prebuilt
       - name: Package
         id: package
@@ -92,7 +124,10 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "zip=$($result.release)" >> $env:GITHUB_OUTPUT
           "sha256=$($result.sha256)" >> $env:GITHUB_OUTPUT
+      # A manual run (workflow_dispatch) is a dry run: it builds the prebuilt
+      # assets and the launcher ZIP as artifacts, and drafts nothing.
       - name: Draft release
+        if: github.ref_type == 'tag'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}

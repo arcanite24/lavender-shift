@@ -61,7 +61,14 @@ elseif(LAVENDER_SHIFT_SHIFTGLUE_KIT)
     endif()
     set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/kit.json")
-    find_package(rexglue CONFIG REQUIRED NO_DEFAULT_PATH PATHS "${LAVENDER_SHIFT_SHIFTGLUE_KIT}")
+    # The kit is on the build host: a cross toolchain's sysroot (the NDK, for
+    # the Android shell) would otherwise re-root the search under itself, for
+    # the kit and for the dependencies its package finds through its prefix.
+    set(_lavender_find_root_mode "${CMAKE_FIND_ROOT_PATH_MODE_PACKAGE}")
+    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+    find_package(rexglue CONFIG REQUIRED NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH
+        PATHS "${LAVENDER_SHIFT_SHIFTGLUE_KIT}")
+    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE "${_lavender_find_root_mode}")
     set(LAVENDER_SHIFT_SDK_SOURCE_DIR "${LAVENDER_SHIFT_SHIFTGLUE_KIT}/share/rexglue/source")
     # The upscaler runtimes are vendor binaries no release ships
     # (docs/LEGAL.md): the kit's copies of the SDK's fetch modules download
