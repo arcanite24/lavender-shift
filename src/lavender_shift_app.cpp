@@ -393,6 +393,28 @@ void LavenderShiftApp::ApplyNarrowView(bool narrow) {
 // never changed. Pinyon Shift's LS-1.5 rule, with FH2's top rate of 60;
 // the thresholds are not yet measured on FH2's low end.
 void LavenderShiftApp::ApplyFirstRunDefaults() {
+#if defined(__ANDROID__)
+  // Phones and handhelds: 1x with 2x MSAA, reflections updated every
+  // fourth frame and no sun shadows, which holds 60 fps on a Snapdragon
+  // 8 Gen 2 with the GPU about 76 % busy (docs/ANDROID.md, Results).
+  static constexpr std::pair<const char*, const char*> kAndroid[] = {
+      {"draw_resolution_scale_x", "1"},     {"draw_resolution_scale_y", "1"},
+      {"present_effect", "\"bilinear\""},   {"fh1_msaa_single_sample", "false"},
+      {"fh1_msaa_2x", "true"},              {"lavender_env_map_rate", "0.25"},
+      {"lavender_shadows", "false"},        {"lavender_frame_rate", "\"60\""}};
+  if (!host_config_ || !host_config_->Load()) return;
+  for (const auto& [name, literal] : kAndroid) {
+    host_config_->Set(name, literal);
+    std::string value = literal;
+    std::erase(value, '"');
+    rex::cvar::SetFlagByName(name, value);
+  }
+  if (!host_config_->Save()) {
+    REXLOG_ERROR("Settings: could not write {}", host_config_->path().string());
+  }
+  REXLOG_INFO("First run on Android: 1x, 2x MSAA, quarter reflections, no shadows, 60 fps");
+  return;
+#endif
   auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
   auto* provider = graphics ? dynamic_cast<rex::ui::vulkan::VulkanProvider*>(graphics->provider())
                             : nullptr;

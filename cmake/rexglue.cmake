@@ -1,6 +1,25 @@
 # From `rexglue init` (ShiftGlue 101ad468), edited: output under .local/generated,
 # and codegen applies the title-update patches (--xex_apply_patches=true).
 
+# Android (docs/ANDROID.md), as in Pinyon Shift: every handheld the build
+# targets is ARMv8.2 or later, so atomics compile to LSE instructions, in the
+# SDK and its libraries too. Every library in the package is position
+# independent, and the 0xE0000000 physical view assumes 4 KB pages (a 16 KB
+# page kernel refuses the build at start instead of paying a run-time offset
+# on every access).
+if(ANDROID)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    set(LAVENDER_SHIFT_ANDROID_MARCH "armv8.2-a" CACHE STRING
+        "-march for every Android target, the SDK and its libraries included")
+    add_compile_options(-march=${LAVENDER_SHIFT_ANDROID_MARCH})
+    set(REXGLUE_ARM64_MARCH ${LAVENDER_SHIFT_ANDROID_MARCH})
+    option(LAVENDER_SHIFT_PHYSICAL_HEAP_4K_PAGES
+        "Assume 4 KB memory pages: no run-time host offset on 0xE0000000 guest accesses" ON)
+    if(LAVENDER_SHIFT_PHYSICAL_HEAP_4K_PAGES)
+        add_compile_definitions(REX_PHYSICAL_HEAP_4K_PAGES=1)
+    endif()
+endif()
+
 # SDK version
 # Set REXSDK_VERSION to pin a specific SDK version.
 # Otherwise, the version of the SDK that generated this file is used.
@@ -11,6 +30,15 @@ set(REXSDK_DIR "" CACHE PATH "Path to rexglue-sdk source tree")
 set(LAVENDER_SHIFT_SHIFTGLUE_KIT "" CACHE PATH "Unpacked prebuilt ShiftGlue kit")
 if(REXSDK_DIR)
     add_subdirectory("${REXSDK_DIR}" rexglue-sdk)
+    # Calls inside the runtime libraries bind locally instead of through the
+    # PLT, as libmain's do (Pinyon Shift's NN-3.6).
+    if(ANDROID)
+        foreach(_lavender_runtime IN ITEMS rexruntime rexgpu-fh1)
+            if(TARGET ${_lavender_runtime})
+                target_link_options(${_lavender_runtime} PRIVATE -Wl,-Bsymbolic-functions)
+            endif()
+        endforeach()
+    endif()
     message(STATUS "Using ReXGlue SDK from source tree: ${REXSDK_DIR}")
     set(LAVENDER_SHIFT_SDK_SOURCE_DIR "${REXSDK_DIR}")
 elseif(LAVENDER_SHIFT_SHIFTGLUE_KIT)
@@ -154,6 +182,32 @@ macro(rexglue_setup_target target_name)
     rexglue_configure_target(${target_name} ${ARGN})
 endmacro()
 
+# A cross build (Android) runs the generator built for this PC: the SDK's
+# standalone build (out/<os>-<arch>/Release), which the PC build made.
+set(LAVENDER_SHIFT_CODEGEN "$<TARGET_FILE:rex::rexglue>")
+if(CMAKE_CROSSCOMPILING)
+    if(CMAKE_HOST_WIN32)
+        set(_lavender_host_os win)
+    elseif(CMAKE_HOST_APPLE)
+        set(_lavender_host_os mac)
+    else()
+        set(_lavender_host_os linux)
+    endif()
+    if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        set(_lavender_host_arch amd64)
+    else()
+        set(_lavender_host_arch arm64)
+    endif()
+    set(LAVENDER_SHIFT_HOST_CODEGEN
+        "${REXSDK_DIR}/out/${_lavender_host_os}-${_lavender_host_arch}/Release/rexglue${CMAKE_HOST_EXECUTABLE_SUFFIX}"
+        CACHE FILEPATH "The ReXGlue generator built for the build host")
+    if(NOT EXISTS "${LAVENDER_SHIFT_HOST_CODEGEN}")
+        message(FATAL_ERROR "The host generator is missing: ${LAVENDER_SHIFT_HOST_CODEGEN}. "
+            "Build the game on this PC first (tools/build.ps1).")
+    endif()
+    set(LAVENDER_SHIFT_CODEGEN "${LAVENDER_SHIFT_HOST_CODEGEN}")
+endif()
+
 # Codegen runs as part of the build, re-running only when an input in codegen.d
 # changes. Build it alone with 'cmake --build . --target lavender_shift_codegen'.
 # Listing the sources as outputs orders any target that compiles them after
@@ -163,7 +217,7 @@ endmacro()
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/.local/generated/default/codegen.build.stamp"
            ${REXGLUE_ENTRYPOINT_GENERATED_SOURCES}
-    COMMAND $<TARGET_FILE:rex::rexglue> codegen ${CMAKE_CURRENT_SOURCE_DIR}/lavender_shift_manifest.toml --xex_apply_patches=true
+    COMMAND ${LAVENDER_SHIFT_CODEGEN} codegen ${CMAKE_CURRENT_SOURCE_DIR}/lavender_shift_manifest.toml --xex_apply_patches=true
     DEPFILE "${CMAKE_CURRENT_SOURCE_DIR}/.local/generated/default/codegen.d"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Generating recompiled code for lavender_shift"

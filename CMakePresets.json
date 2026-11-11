@@ -228,6 +228,39 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo"
             }
+        },
+        {
+            "name": "android-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+            "cacheVariables": {
+                "ANDROID_ABI": "arm64-v8a",
+                "ANDROID_PLATFORM": "android-33",
+                "ANDROID_STL": "c++_shared",
+                "CMAKE_C_FLAGS": "-ffp-contract=off",
+                "CMAKE_CXX_FLAGS": "-ffp-contract=off",
+                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-z,max-page-size=16384",
+                "REXSDK_DIR": "${sourceDir}/thirdparty/shiftglue-sdk",
+                "REXGLUE_USE_VULKAN": "ON"
+            }
+        },
+        {
+            "name": "android-arm64-release",
+            "displayName": "Android ARM64 Release",
+            "inherits": "android-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "android-arm64-relwithdebinfo",
+            "displayName": "Android ARM64 RelWithDebInfo",
+            "inherits": "android-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
         }
     ],
     "buildPresets": [
@@ -302,6 +335,14 @@
         {
             "name": "mac-arm64-relwithdebinfo",
             "configurePreset": "mac-arm64-relwithdebinfo"
+        },
+        {
+            "name": "android-arm64-release",
+            "configurePreset": "android-arm64-release"
+        },
+        {
+            "name": "android-arm64-relwithdebinfo",
+            "configurePreset": "android-arm64-relwithdebinfo"
         }
     ]
 }

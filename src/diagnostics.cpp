@@ -15,10 +15,14 @@
 #include <system_error>
 #include <thread>
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <Windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #include <rex/filesystem.h>
 #include <rex/logging.h>
@@ -36,7 +40,11 @@ std::mutex g_event_mutex;
 std::string UtcTimestamp(bool filename_safe) {
   const auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   std::tm utc{};
+  #if defined(_WIN32)
   gmtime_s(&utc, &time);
+#else
+  gmtime_r(&time, &utc);
+#endif
   std::ostringstream stream;
   stream << std::put_time(&utc, filename_safe ? "%Y%m%dT%H%M%SZ" : "%Y-%m-%dT%H:%M:%SZ");
   return stream.str();
@@ -75,7 +83,13 @@ bool EnvironmentFlag(const char* name) {
 
 void Initialize(const std::filesystem::path& user_root) {
   if (!g_session_id.empty()) return;
-  g_session_id = UtcTimestamp(true) + "-p" + std::to_string(GetCurrentProcessId());
+  g_session_id = UtcTimestamp(true) + "-p" + std::to_string(
+#if defined(_WIN32)
+                                                   GetCurrentProcessId()
+#else
+                                                   getpid()
+#endif
+                                                       );
   g_logs = user_root / "logs";
   std::error_code error;
   std::filesystem::create_directories(g_logs, error);
@@ -120,7 +134,12 @@ void RecordEvent(std::string_view event, std::span<const Field> fields) {
   std::ostringstream json;
   json << "{\"schema\":1,\"utc\":\"" << UtcTimestamp(false) << "\",\"session\":\""
        << JsonEscape(g_session_id) << "\",\"event\":\"" << JsonEscape(event) << "\",\"tid\":\""
-       << GetCurrentThreadId() << '"';
+#if defined(_WIN32)
+       << GetCurrentThreadId()
+#else
+       << gettid()
+#endif
+       << '"';
   for (const auto& [key, value] : fields) {
     json << ",\"" << JsonEscape(key) << "\":\"" << JsonEscape(value) << '"';
   }

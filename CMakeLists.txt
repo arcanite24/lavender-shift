@@ -24,9 +24,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/main.cpp
     src/lavender_shift_app.cpp
     src/diagnostics.cpp
-    src/crash_reporter_win.cpp
     src/stall_dump.cpp
-    src/hitch_sampler_win.cpp
     src/save_backups.cpp
     src/fixed_steps.cpp
     src/frame_rate.cpp
@@ -64,7 +62,23 @@ set(LAVENDER_SHIFT_SOURCES
 )
 
 if(WIN32)
+    list(APPEND LAVENDER_SHIFT_SOURCES src/crash_reporter_win.cpp src/hitch_sampler_win.cpp)
+else()
+    list(APPEND LAVENDER_SHIFT_SOURCES src/crash_reporter_posix.cpp src/hitch_sampler_posix.cpp)
+endif()
+
+if(WIN32)
     add_executable(lavender_shift WIN32 ${LAVENDER_SHIFT_SOURCES})
+elseif(ANDROID)
+    # SDL's activity loads the game as libmain.so and calls its SDL_main; the
+    # runtime, the GPU plugin and the facades are libraries beside it
+    # (docs/ANDROID.md). Every generated function is a default-visibility
+    # weak symbol, so in a shared library each call between them would go
+    # through the PLT; bind them to their definitions here, as Pinyon Shift
+    # does.
+    add_library(lavender_shift SHARED ${LAVENDER_SHIFT_SOURCES})
+    set_target_properties(lavender_shift PROPERTIES OUTPUT_NAME main)
+    target_link_options(lavender_shift PRIVATE -Wl,-Bsymbolic-functions)
 else()
     add_executable(lavender_shift ${LAVENDER_SHIFT_SOURCES})
 endif()
@@ -83,7 +97,9 @@ endif()
 # rexgpu-fh1 is ShiftGlue's Xenos (PM4) GPU plugin: the Stage 0 path.
 rexglue_setup_target(lavender_shift GPU_PLUGINS fh1)
 # The crash reporter writes minidumps and symbolized stacks.
-target_link_libraries(lavender_shift PRIVATE dbghelp)
+if(WIN32)
+    target_link_libraries(lavender_shift PRIVATE dbghelp)
+endif()
 
 # The game and the SDK's DLLs use the Visual C++ runtime DLLs. Copies sit
 # beside the game (Microsoft's app-local deployment), so it starts on a PC

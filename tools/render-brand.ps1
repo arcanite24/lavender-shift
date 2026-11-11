@@ -85,6 +85,25 @@ foreach ($frame in $frames) { $writer.Write($frame) }
 $writer.Flush()
 [IO.File]::WriteAllBytes((Join-Path $OutputDirectory 'lavender-shift.ico'), $icon.ToArray())
 
+# The Android launcher icon's foreground layer (android/res): the mark alone
+# on a transparent 432 px square (108 dp at xxxhdpi), inside the middle 66 %
+# that every launcher's mask keeps; the background layer is the icon's
+# #2B1F44 (android/res/values/colors.xml).
+$visual = New-Object Windows.Media.DrawingVisual
+$context = $visual.RenderOpen()
+$scale = (432 * 0.56) / 420
+$context.PushTransform((New-Object Windows.Media.TranslateTransform ((432 - 400 * $scale) / 2), ((432 - 420 * $scale) / 2)))
+$context.PushTransform((New-Object Windows.Media.ScaleTransform $scale, $scale))
+$context.DrawGeometry((New-Object Windows.Media.SolidColorBrush ([Windows.Media.ColorConverter]::ConvertFromString('#C9B3F5'))), $null, $geometry)
+$context.Pop(); $context.Pop(); $context.Close()
+$bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap 432, 432, 96, 96, ([Windows.Media.PixelFormats]::Pbgra32)
+$bitmap.Render($visual)
+$encoder = New-Object Windows.Media.Imaging.PngBitmapEncoder
+$encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+$foreground = Join-Path $root 'android/res/drawable-xxxhdpi/ic_launcher_foreground.png'
+$stream = [IO.File]::Create($foreground)
+try { $encoder.Save($stream) } finally { $stream.Dispose() }
+
 if ($PreviewPath) {
     $previewDir = Split-Path -Parent $PreviewPath
     $name = [IO.Path]::GetFileNameWithoutExtension($PreviewPath)

@@ -15,10 +15,12 @@
 #include <cstdlib>
 #include <string>
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <Windows.h>
+#endif
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -48,6 +50,7 @@ void SetUnlessCommandLine(const char* name, const std::string& value) {
 }  // namespace
 
 uint32_t DisplayRefreshRate() {
+#if defined(_WIN32)
   const HWND window = static_cast<HWND>(g_window);
   const HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY);
   MONITORINFOEXW info{};
@@ -59,6 +62,8 @@ uint32_t DisplayRefreshRate() {
       mode.dmDisplayFrequency > 1) {
     return std::clamp<uint32_t>(mode.dmDisplayFrequency, 24, 240);
   }
+#endif
+  // Elsewhere (Android) the display's rate is not read yet: 60.
   return kFallbackRefresh;
 }
 
