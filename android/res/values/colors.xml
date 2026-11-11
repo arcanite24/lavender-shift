@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launcher icon's square (tools/render-brand.ps1). -->
+    <color name="ic_launcher_background">#2B1F44</color>
+</resources>
