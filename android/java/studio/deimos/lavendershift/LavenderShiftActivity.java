@@ -179,7 +179,27 @@ public class LavenderShiftActivity extends SDLActivity {
         Intent intent = getIntent();
         String[] given = intent != null ? intent.getStringArrayExtra("args") : null;
         if (given != null) Collections.addAll(arguments, given);
-        return arguments.toArray(new String[0]);
+        return lastOfEach(arguments).toArray(new String[0]);
+    }
+
+    // The game's parser rejects an option given twice and then applies none
+    // of them, so a later --name=value replaces an earlier one here.
+    static List<String> lastOfEach(List<String> arguments) {
+        java.util.LinkedHashMap<String, String> byName = new java.util.LinkedHashMap<>();
+        List<String> others = new ArrayList<>();
+        for (String argument : arguments) {
+            int equals = argument.indexOf('=');
+            if (!argument.startsWith("--") || equals < 0) {
+                others.add(argument);
+                continue;
+            }
+            String name = argument.substring(0, equals);
+            byName.remove(name);
+            byName.put(name, argument);
+        }
+        List<String> result = new ArrayList<>(byName.values());
+        result.addAll(others);
+        return result;
     }
 
     // The Adreno GPU's model number ("740"), from the kernel driver, or from
