@@ -101,7 +101,14 @@ if ($isRepositoryCheckout) {
 else {
     $replaceCheckout = $false
     $head = @()
-    if (Test-Path -LiteralPath $sdkRoot) {
+    # Written once a managed checkout is complete. Without it the folder is
+    # an interrupted download (a --no-checkout clone whose fetch failed reads
+    # as "every file deleted"), which is replaced rather than refused.
+    $preparedMarker = "$sdkRoot.prepared"
+    if ((Test-Path -LiteralPath $sdkRoot) -and -not (Test-Path -LiteralPath $preparedMarker)) {
+        $replaceCheckout = $true
+    }
+    elseif (Test-Path -LiteralPath $sdkRoot) {
         if (Test-Path -LiteralPath (Join-Path $sdkRoot '.git')) {
             $head = @(& $git -C $sdkRoot rev-parse HEAD 2>$null | Select-Object -First 1)
         }
@@ -120,6 +127,7 @@ else {
                 [StringComparison]::OrdinalIgnoreCase)) {
             throw "Refusing to replace ShiftGlue outside $allowed"
         }
+        Remove-Item -LiteralPath $preparedMarker -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $resolved -Recurse -Force
     }
     if (-not (Test-Path -LiteralPath $sdkRoot)) {
@@ -162,4 +170,7 @@ if ($head[0] -ne $config.rexglue.revision) {
     Write-LavenderEvent tools 38 "Using developer ShiftGlue revision $($head[0])." -JsonEvents:$JsonEvents
 }
 Repair-MaterializedLinks -RepositoryRoot $sdkRoot
+if (-not $isRepositoryCheckout) {
+    [IO.File]::WriteAllText("$sdkRoot.prepared", $head[0] + [Environment]::NewLine)
+}
 Write-LavenderEvent tools 39 'ShiftGlue source is ready.' -JsonEvents:$JsonEvents
