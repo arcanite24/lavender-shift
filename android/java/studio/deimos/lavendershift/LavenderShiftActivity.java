@@ -95,9 +95,15 @@ public class LavenderShiftActivity extends SDLActivity {
         // times out sends the game to the background. Only while this window
         // shows.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if (!new File(base, "game/disc/default.xex").isFile()) {
-            Toast.makeText(this, "Lavender Shift: copy the game files to "
-                    + new File(base, "game").getAbsolutePath() + " first", Toast.LENGTH_LONG).show();
+        // The app icon opens SetupActivity, which gets the game files from the
+        // PC before it starts this activity. Only a direct start (tooling)
+        // gets here without them: SDL's activity cannot hand over to another
+        // one from onCreate (a second creation in the process exits), so it
+        // says where they go instead.
+        if (!new File(base, SetupActivity.GAME_FILE).isFile()) {
+            Toast.makeText(this, "Lavender Shift: the game files are missing. Open the app from its icon "
+                    + "to copy them from your PC, or copy them to "
+                    + new File(base, "game").getAbsolutePath() + ".", Toast.LENGTH_LONG).show();
         }
     }
 

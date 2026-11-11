@@ -36,6 +36,17 @@
          server. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- The setup screen copies the game files from the player's PC on the
+         local network (SetupActivity), over plain HTTP to the launcher: the
+         PC has no certificate a phone would trust, and a pairing code guards
+         the transfer. -->
+
+    <!-- When the PC's share offers a newer build of this app, the setup
+         screen hands it to the system installer (PackageInstaller), which
+         asks the player to confirm. Android also asks once to allow this app
+         to install apps. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:label="Lavender Shift"
         android:icon="@mipmap/ic_launcher"
@@ -47,6 +58,7 @@
         android:appCategory="game"
         android:largeHeap="true"
         android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="false">
 
         <!-- simpleperf from adb on a release build: profiling only, no
@@ -59,6 +71,28 @@
         <meta-data android:name="android.game_mode_config"
             android:resource="@xml/game_mode_config" />
 
+        <!-- The app icon: starts the game, or gets its files from the PC
+             first (SetupActivity). -->
+        <activity
+            android:name="studio.deimos.lavendershift.SetupActivity"
+            android:label="Lavender Shift"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="studio.deimos.lavendershift.SETUP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- The game, started by SetupActivity once the game files are in
+             place, or directly by tooling (adb shell am start -n). -->
         <activity
             android:name="studio.deimos.lavendershift.LavenderShiftActivity"
             android:label="Lavender Shift"
@@ -70,10 +104,6 @@
             android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:preferMinimalPostProcessing="true"
             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
