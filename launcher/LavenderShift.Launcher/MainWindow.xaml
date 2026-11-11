@@ -1,7 +1,7 @@
 <Window x:Class="LavenderShift.Launcher.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Lavender Shift" Width="760" Height="640" MinWidth="620" MinHeight="520"
+        Title="Lavender Shift" Width="780" Height="740" MinWidth="620" MinHeight="600"
         WindowStartupLocation="CenterScreen" Background="{StaticResource Background}"
         FontFamily="Segoe UI" FontSize="13">
   <Grid Margin="28,24">
@@ -61,7 +61,7 @@
       </Border>
     </StackPanel>
 
-    <Expander x:Name="LogExpander" Grid.Row="3" Margin="0,14,0,0" Foreground="{StaticResource Muted}" Header="Setup log">
+    <Expander x:Name="LogExpander" Grid.Row="3" Margin="0,14,0,0" MinHeight="26" Foreground="{StaticResource Muted}" Header="Setup log">
       <TextBox x:Name="LogBox" Margin="0,6,0,0" IsReadOnly="True" TextWrapping="NoWrap"
                VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                FontFamily="Cascadia Mono, Consolas" FontSize="11.5" />

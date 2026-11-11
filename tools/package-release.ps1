@@ -81,7 +81,7 @@ Lavender Shift $version
 2. Start LavenderShiftLauncher.exe.
 3. Choose your Forza Horizon 2 USA disc image (.iso) and title update v2,
    then press Set up. The first setup builds the game on this PC and takes
-   about an hour.
+   15 minutes to an hour, depending on the PC.
 
 Your saves are in the user folder beside the launcher. To update, extract
 a newer release into the same folder and run setup again.

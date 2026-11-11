@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         SetupNote.Text =
             $"Setup downloads the pinned build tools (and the Visual Studio Build Tools if this PC has none, which asks for " +
             $"administrator rights), extracts your files and builds the game in {layout.SourceRoot}. The first setup takes " +
-            "about an hour and needs 30 GB free there. Your files are only read, and nothing from them is uploaded.";
+            "15 minutes to an hour, depending on the PC, and needs 30 GB free there. Your files are only read, and nothing from them is uploaded.";
         if (layout.InstallRoot.Length > 90)
             SetupNote.Text += " This folder's path is long; if the build fails, move the launcher folder somewhere short, such as C:\\Games\\LavenderShift.";
         SetMode(GameIsRunning() ? Mode.Playing : layout.IsReady() ? Mode.Ready : Mode.NeedsSetup);
@@ -60,7 +60,8 @@ public partial class MainWindow : Window
     {
         mode = next;
         var running = next == Mode.Running;
-        SetupPanel.Visibility = next == Mode.NeedsSetup || editingFiles || (running && editingFiles)
+        // While setup runs, the progress and log get the room.
+        SetupPanel.Visibility = !running && (next == Mode.NeedsSetup || editingFiles)
             ? Visibility.Visible : Visibility.Collapsed;
         SetupPanel.IsEnabled = !running;
         Progress.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
@@ -70,6 +71,7 @@ public partial class MainWindow : Window
         {
             case Mode.NeedsSetup:
                 StatusText.Text = "Setup needed";
+                DetailText.Text = "";
                 PrimaryButton.Content = "Set up";
                 break;
             case Mode.Running:
@@ -169,6 +171,7 @@ public partial class MainWindow : Window
         cancelled = false;
         SetMode(Mode.Running);
         Progress.Value = 0;
+        LogExpander.IsExpanded = true;
         DetailText.Text = "Starting setup.";
         AppendLog($"Setup started {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         try

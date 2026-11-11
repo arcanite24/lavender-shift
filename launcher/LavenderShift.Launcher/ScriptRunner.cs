@@ -32,6 +32,11 @@ public sealed class ScriptRunner
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        // Started from a PowerShell 7 prompt, the launcher inherits its
+        // PSModulePath, and Windows PowerShell then fails to load its own
+        // modules (Get-FileHash is "not recognized"). Without the variable
+        // Windows PowerShell builds its default.
+        info.Environment.Remove("PSModulePath");
         foreach (var argument in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script })
             info.ArgumentList.Add(argument);
         foreach (var argument in arguments) info.ArgumentList.Add(argument);

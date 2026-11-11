@@ -19,8 +19,9 @@ own Forza Horizon 2 USA disc image and the title update v2 package.
 2. Start `LavenderShiftLauncher.exe`, choose the disc image and the title
    update, and press **Set up**. The launcher downloads the pinned build
    tools (and the Visual Studio Build Tools if the PC has none), extracts
-   your files and builds the game on your PC. The first setup takes about
-   an hour; it continues where it stopped if interrupted.
+   your files and builds the game on your PC. The first setup takes 15
+   minutes to an hour, depending on the PC; it continues where it stopped
+   if interrupted.
 3. Press **Play**. Settings are in the game's F6 menu.
 
 Saves and settings live in `user` beside the launcher. To update, extract
