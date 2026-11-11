@@ -213,6 +213,49 @@
                     </Grid>
                 </Border>
 
+                <!-- Android: the package built from this PC's build, and its install. -->
+                <Border x:Name="AndroidPanel" CornerRadius="14" Padding="26,22" VerticalAlignment="Top"
+                        Background="{StaticResource SurfaceBrush}" Visibility="Collapsed" Margin="0,0,0,16"
+                        AutomationProperties.Name="Android">
+                    <StackPanel>
+                        <TextBlock Text="Android package" FontSize="17" FontFamily="Bahnschrift SemiBold"/>
+                        <TextBlock x:Name="AndroidApkText" FontSize="13" Foreground="{StaticResource MutedBrush}"
+                                   Margin="0,6,0,0" TextWrapping="Wrap" LineHeight="20"/>
+                        <WrapPanel Margin="0,18,0,0">
+                            <Button x:Name="AndroidBuildButton" Content="Build APK" Style="{StaticResource QuietButton}"
+                                    MinWidth="132" Margin="0,0,10,10" Click="AndroidBuild_Click"
+                                    AutomationProperties.HelpText="Compile the game for Android from this PC's build."/>
+                            <Button x:Name="AndroidShareButton" Content="Share on Wi-Fi" Style="{StaticResource QuietButton}"
+                                    MinWidth="132" Margin="0,0,10,10" Click="AndroidShare_Click"
+                                    AutomationProperties.HelpText="Serve the package and the game files to a device on this network."/>
+                            <Button x:Name="AndroidUsbButton" Content="Install over USB" Style="{StaticResource QuietButton}"
+                                    MinWidth="132" Margin="0,0,10,10" Visibility="Collapsed" Click="AndroidUsb_Click"/>
+                            <Button x:Name="AndroidSaveButton" Content="Save a copy" Style="{StaticResource QuietButton}"
+                                    MinWidth="132" Margin="0,0,10,10" Click="AndroidSave_Click"
+                                    AutomationProperties.HelpText="Save the package to copy it to the device yourself."/>
+                            <Button x:Name="AndroidBackButton" Content="Back" Style="{StaticResource LinkButton}"
+                                    Margin="0,0,0,10" Click="AndroidBack_Click"/>
+                        </WrapPanel>
+                        <StackPanel x:Name="AndroidSharePanel" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                            <Border Background="White" CornerRadius="10" Padding="10" VerticalAlignment="Top">
+                                <Image x:Name="AndroidQrImage" Width="176" Height="176"
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"
+                                       AutomationProperties.Name="QR code for the device"/>
+                            </Border>
+                            <StackPanel Margin="20,0,0,0" MaxWidth="420" VerticalAlignment="Center">
+                                <TextBlock Text="Pairing code" FontSize="13" Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock x:Name="AndroidCodeText" FontSize="34" FontFamily="Bahnschrift SemiBold"
+                                           Margin="0,2,0,8"/>
+                                <TextBlock x:Name="AndroidUrlText" FontSize="13" TextWrapping="Wrap" LineHeight="20"
+                                           Foreground="{StaticResource FogBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock x:Name="AndroidStatusText" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   LineHeight="20" Foreground="{StaticResource FogBrush}"
+                                   AutomationProperties.LiveSetting="Polite"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Progress and the build log. -->
                 <Border x:Name="LogPanel" Background="{StaticResource SurfaceBrush}" CornerRadius="14" Visibility="Collapsed">
                     <Grid Margin="24,18,24,16">
@@ -253,6 +296,9 @@
                     <Run x:Name="VersionRun" Text="Lavender Shift"/><Run Text=" · Not affiliated with Microsoft or Playground Games"/>
                 </TextBlock>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="OpenAndroidButton" Content="Android" Style="{StaticResource LinkButton}"
+                            Visibility="Collapsed" Click="OpenAndroid_Click"
+                            AutomationProperties.HelpText="Build the game for an Android device and install it there."/>
                     <Button x:Name="OpenSavesButton" Content="Saves" Style="{StaticResource LinkButton}"
                             Click="OpenSaves_Click" AutomationProperties.HelpText="Open the folder with your saves and settings."/>
                     <Button x:Name="OpenLogsButton" Content="Logs" Style="{StaticResource LinkButton}"

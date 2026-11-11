@@ -99,9 +99,13 @@ public partial class MainWindow : Window
         mode = next;
         var running = next == Mode.Running;
         var ready = next is Mode.Ready or Mode.Playing;
+        // The Android panel stays open over Ready and over its own builds.
+        if (next is Mode.NeedsSetup || editingFiles) androidOpen = false;
         SetupPanel.Visibility = !running && (next == Mode.NeedsSetup || editingFiles) ? Visibility.Visible : Visibility.Collapsed;
         LogPanel.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
-        RouteList.Visibility = ready && !editingFiles ? Visibility.Collapsed : Visibility.Visible;
+        RouteList.Visibility = (ready && !editingFiles) || androidOpen ? Visibility.Collapsed : Visibility.Visible;
+        AndroidPanel.Visibility = androidOpen && !running ? Visibility.Visible : Visibility.Collapsed;
+        OpenAndroidButton.Visibility = next is Mode.Ready or Mode.Playing && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
         RepairButton.Visibility = next == Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
         ChangeFilesButton.Visibility = next == Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
         PrimaryIcon.Visibility = next == Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
@@ -111,6 +115,9 @@ public partial class MainWindow : Window
                 HeadlineText.Text = "Set up Lavender Shift";
                 SetSubhead("Built on this PC from your own disc and title update. Nothing is uploaded.");
                 PrimaryButtonText.Text = "Set up";
+                break;
+            case Mode.Running when androidOpen:
+                PrimaryButtonText.Text = "Cancel";
                 break;
             case Mode.Running:
                 HeadlineText.Text = "Setting up";
@@ -138,6 +145,7 @@ public partial class MainWindow : Window
                 break;
         }
         UpdatePrimaryEnabled();
+        if (androidOpen) RefreshAndroidPanel();
     }
 
     private void SetSubhead(string text) => SubheadText.Text = text;
