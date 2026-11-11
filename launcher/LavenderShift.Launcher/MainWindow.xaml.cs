@@ -1,7 +1,9 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -12,6 +14,17 @@ public partial class MainWindow : Window
     private enum Mode { NeedsSetup, Running, Ready, Playing }
 
     private const int LogLimit = 400_000;
+
+    // Setup's event stages (tools/setup-release.ps1) in order; shader
+    // preparation belongs to Play, as in Pinyon Shift's launcher.
+    private readonly ObservableCollection<RouteStep> steps =
+    [
+        new("tools", "Get build tools"),
+        new("extract", "Extract game"),
+        new("build", "Build"),
+        new("play", "Play"),
+    ];
+
     private readonly InstallLayout? layout;
     private readonly LauncherSettings settings = new();
     private readonly DispatcherTimer gameWatch = new() { Interval = TimeSpan.FromSeconds(2) };
@@ -20,12 +33,24 @@ public partial class MainWindow : Window
     private Mode mode;
     private bool editingFiles;
     private bool cancelled;
+    private string? discPath;
+    private string? updatePath;
 
     public MainWindow()
     {
         InitializeComponent();
-        VersionText.Text = "v" + InstallLayout.Version;
+        RouteList.ItemsSource = steps;
+        VersionRun.Text = "Lavender Shift " + InstallLayout.Version;
         gameWatch.Tick += (_, _) => { if (mode == Mode.Playing && !GameIsRunning()) SetMode(Mode.Ready); };
+        StateChanged += (_, _) =>
+        {
+            // A maximized borderless window reaches past the screen edge by the
+            // resize border; pad it back in.
+            RootBorder.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
+            MaximizeGlyph.Data = Geometry.Parse(WindowState == WindowState.Maximized
+                ? "M2.5,0.5 H9.5 V7.5 M0.5,2.5 H7.5 V9.5 H0.5 Z"
+                : "M0.5,0.5 H9.5 V9.5 H0.5 Z");
+        };
         try
         {
             layout = InstallLayout.Locate();
@@ -33,66 +58,84 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            HeadlineText.Text = "Something is missing";
+            SetSubhead("Extract the whole release ZIP into one folder and start the launcher from there.");
             ShowFailure(ex.Message, null, null);
-            PrimaryButton.Content = "Set up";
+            SetupPanel.Visibility = Visibility.Collapsed;
+            RouteList.Visibility = Visibility.Collapsed;
             PrimaryButton.IsEnabled = false;
-            SetupPanel.IsEnabled = false;
-            RepairButton.Visibility = ChangeFilesButton.Visibility = Visibility.Collapsed;
             return;
         }
-        DiscBox.Text = settings.DiscImage ?? "";
-        UpdateBox.Text = settings.TitleUpdate ?? "";
-        OwnershipBox.IsChecked = settings.OwnershipConfirmed;
-        SetupNote.Text =
-            $"Setup downloads the pinned build tools (and the Visual Studio Build Tools if this PC has none, which asks for " +
-            $"administrator rights), extracts your files and builds the game in {layout.SourceRoot}. The first setup takes " +
-            "15 minutes to an hour, depending on the PC, and needs 30 GB free there. Your files are only read, and nothing from them is uploaded.";
+        SetDisc(settings.DiscImage);
+        SetUpdate(settings.TitleUpdate);
+        OwnershipCheckBox.IsChecked = settings.OwnershipConfirmed;
+        BuildLocationRun.Text = layout.SourceRoot;
         if (layout.InstallRoot.Length > 90)
-            SetupNote.Text += " This folder's path is long; if the build fails, move the launcher folder somewhere short, such as C:\\Games\\LavenderShift.";
+            BuildLocationNoteRun.Text = " · needs 30 GB free; a shorter folder such as C:\\Games\\LavenderShift avoids path-length build errors";
         SetMode(GameIsRunning() ? Mode.Playing : layout.IsReady() ? Mode.Ready : Mode.NeedsSetup);
-        var failure = mode == Mode.NeedsSetup ? SetupFailure.Read(layout.SetupErrorPath) : null;
-        if (failure is not null) ShowFailure("The last setup failed: " + failure.Message, failure.Hint, failure.Excerpt);
-        if (mode == Mode.NeedsSetup && layout.IsReadyExceptSource())
-            DetailText.Text = "This release changed the game's source. Run setup again to rebuild (your game files are kept).";
+        if (mode == Mode.NeedsSetup)
+        {
+            var failure = SetupFailure.Read(layout.SetupErrorPath);
+            if (failure is not null)
+            {
+                HeadlineText.Text = "Setup stopped";
+                ShowFailure(failure.Message, failure.Hint, failure.Excerpt);
+            }
+            if (layout.IsReadyExceptSource())
+            {
+                HeadlineText.Text = "Update ready";
+                SetSubhead("This release changed the game's source. Set up again to rebuild; your game files and saves are kept.");
+            }
+        }
     }
 
     private void SetMode(Mode next)
     {
         mode = next;
         var running = next == Mode.Running;
-        // While setup runs, the progress and log get the room.
-        SetupPanel.Visibility = !running && (next == Mode.NeedsSetup || editingFiles)
-            ? Visibility.Visible : Visibility.Collapsed;
-        SetupPanel.IsEnabled = !running;
-        Progress.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
-        RepairButton.Visibility = next is Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
-        ChangeFilesButton.Visibility = next is Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
+        var ready = next is Mode.Ready or Mode.Playing;
+        SetupPanel.Visibility = !running && (next == Mode.NeedsSetup || editingFiles) ? Visibility.Visible : Visibility.Collapsed;
+        LogPanel.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+        RouteList.Visibility = ready && !editingFiles ? Visibility.Collapsed : Visibility.Visible;
+        RepairButton.Visibility = next == Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
+        ChangeFilesButton.Visibility = next == Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
+        PrimaryIcon.Visibility = next == Mode.Ready && !editingFiles ? Visibility.Visible : Visibility.Collapsed;
         switch (next)
         {
             case Mode.NeedsSetup:
-                StatusText.Text = "Setup needed";
-                DetailText.Text = "";
-                PrimaryButton.Content = "Set up";
+                HeadlineText.Text = "Set up Lavender Shift";
+                SetSubhead("Built on this PC from your own disc and title update. Nothing is uploaded.");
+                PrimaryButtonText.Text = "Set up";
                 break;
             case Mode.Running:
-                StatusText.Text = "Setting up";
-                PrimaryButton.Content = "Cancel";
+                HeadlineText.Text = "Setting up";
+                SetSubhead("15 minutes to an hour, depending on the PC. If it stops, it continues where it left off.");
+                PrimaryButtonText.Text = "Cancel";
+                break;
+            case Mode.Ready when editingFiles:
+                HeadlineText.Text = "Choose your files";
+                SetSubhead("Setup checks them and rebuilds what changed. Your saves are kept.");
+                PrimaryButtonText.Text = "Set up";
+                gameWatch.Stop();
                 break;
             case Mode.Ready:
-                StatusText.Text = editingFiles ? "Choose new files, then run setup" : "Ready to play";
-                PrimaryButton.Content = editingFiles ? "Set up" : "Play";
-                if (!editingFiles) DetailText.Text = $"Saves and settings: {layout!.UserRoot}";
+                HeadlineText.Text = "Ready to drive";
+                SetSubhead("Vulkan · F6 opens settings in game");
+                PrimaryButtonText.Text = "Play";
+                foreach (var step in steps) step.SetState(StepState.Complete);
                 gameWatch.Stop();
                 break;
             case Mode.Playing:
-                StatusText.Text = "Lavender Shift is running";
-                DetailText.Text = "Settings are in the game's F6 menu. Close the game to run setup again.";
-                PrimaryButton.Content = "Play";
+                HeadlineText.Text = "Game running";
+                SetSubhead("Controller A or Enter to start. F6 opens settings. Close the game to run setup again.");
+                PrimaryButtonText.Text = "Game running";
                 gameWatch.Start();
                 break;
         }
         UpdatePrimaryEnabled();
     }
+
+    private void SetSubhead(string text) => SubheadText.Text = text;
 
     private void UpdatePrimaryEnabled()
     {
@@ -102,24 +145,102 @@ public partial class MainWindow : Window
             Mode.Running => true,
             Mode.Playing => false,
             Mode.Ready when !editingFiles => true,
-            _ => File.Exists(DiscBox.Text.Trim()) && File.Exists(UpdateBox.Text.Trim()) && OwnershipBox.IsChecked == true,
+            _ => File.Exists(discPath) && File.Exists(updatePath) && OwnershipCheckBox.IsChecked == true,
         };
     }
 
-    private void Inputs_Changed(object sender, RoutedEventArgs e) => UpdatePrimaryEnabled();
+    private void InputChanged(object sender, RoutedEventArgs e) => UpdatePrimaryEnabled();
+
+    private void SetDisc(string? path)
+    {
+        discPath = string.IsNullOrWhiteSpace(path) ? null : path;
+        if (discPath is null)
+        {
+            DiscTitleText.Text = "Drop your Forza Horizon 2 disc image";
+            DiscDetailText.Text = "The USA disc, dumped from your own copy.";
+            BrowseDiscButton.Content = "Choose ISO";
+        }
+        else
+        {
+            DiscTitleText.Text = Path.GetFileName(discPath);
+            DiscDetailText.Text = File.Exists(discPath) ? Path.GetDirectoryName(discPath) : "Not found: " + discPath;
+            BrowseDiscButton.Content = "Change";
+        }
+        UpdatePrimaryEnabled();
+    }
+
+    private void SetUpdate(string? path)
+    {
+        updatePath = string.IsNullOrWhiteSpace(path) ? null : path;
+        if (updatePath is null)
+        {
+            UpdateTitleText.Text = "And the title update v2";
+            UpdateDetailText.Text = "The update package from your console, or a ZIP holding it.";
+            BrowseUpdateButton.Content = "Choose update";
+        }
+        else
+        {
+            UpdateTitleText.Text = Path.GetFileName(updatePath);
+            UpdateDetailText.Text = File.Exists(updatePath) ? Path.GetDirectoryName(updatePath) : "Not found: " + updatePath;
+            BrowseUpdateButton.Content = "Change";
+        }
+        UpdatePrimaryEnabled();
+    }
 
     private void BrowseDisc_Click(object sender, RoutedEventArgs e) =>
-        Browse(DiscBox, "Disc images (*.iso)|*.iso|All files (*.*)|*.*");
+        SetDisc(Browse(discPath, "Disc images (*.iso)|*.iso|All files (*.*)|*.*") ?? discPath);
 
     private void BrowseUpdate_Click(object sender, RoutedEventArgs e) =>
-        Browse(UpdateBox, "Title update (*.zip;*.*)|*.*");
+        SetUpdate(Browse(updatePath, "Title update (*.zip, package)|*.*") ?? updatePath);
 
-    private void Browse(System.Windows.Controls.TextBox box, string filter)
+    private string? Browse(string? current, string filter)
     {
         var dialog = new OpenFileDialog { Filter = filter, CheckFileExists = true };
-        var current = box.Text.Trim();
         if (File.Exists(current)) dialog.InitialDirectory = Path.GetDirectoryName(current);
-        if (dialog.ShowDialog(this) == true) box.Text = dialog.FileName;
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+
+    // A disc image is an .iso; any other dropped file is taken as the update.
+    private static bool TryGetDrop(DragEventArgs e, out string path)
+    {
+        path = "";
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] { Length: 1 } files || !File.Exists(files[0])) return false;
+        path = files[0];
+        return true;
+    }
+
+    private static bool IsDiscImage(string path) =>
+        Path.GetExtension(path).Equals(".iso", StringComparison.OrdinalIgnoreCase);
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        var path = "";
+        var accepted = layout is not null && mode != Mode.Running && TryGetDrop(e, out path);
+        if (accepted)
+            DropOverlayText.Text = IsDiscImage(path) ? "Drop to use this disc image" : "Drop to use this title update";
+        e.Effects = accepted ? DragDropEffects.Copy : DragDropEffects.None;
+        DropOverlay.Visibility = accepted ? Visibility.Visible : Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    protected override void OnDragLeave(DragEventArgs e)
+    {
+        base.OnDragLeave(e);
+        DropOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        DropOverlay.Visibility = Visibility.Collapsed;
+        e.Handled = true;
+        if (layout is null || mode == Mode.Running || !TryGetDrop(e, out var path)) return;
+        if (mode is Mode.Ready && !editingFiles)
+        {
+            editingFiles = true;
+            SetMode(Mode.Ready);
+        }
+        if (IsDiscImage(path)) SetDisc(path);
+        else SetUpdate(path);
     }
 
     private async void PrimaryButton_Click(object sender, RoutedEventArgs e)
@@ -147,6 +268,9 @@ public partial class MainWindow : Window
         SetMode(Mode.Ready);
     }
 
+    private void MicrosoftLicenseLink_Click(object sender, RoutedEventArgs e) =>
+        OpenUrl("https://go.microsoft.com/fwlink/?LinkId=2179911");
+
     private async Task RunSetupAsync()
     {
         if (layout is null) return;
@@ -155,71 +279,91 @@ public partial class MainWindow : Window
             ShowFailure("Close Lavender Shift before setup. Windows locks the game files while it runs.", null, null);
             return;
         }
-        if (!File.Exists(DiscBox.Text.Trim()) || !File.Exists(UpdateBox.Text.Trim()))
+        if (!File.Exists(discPath) || !File.Exists(updatePath))
         {
             editingFiles = true;
             SetMode(layout.IsReady() ? Mode.Ready : Mode.NeedsSetup);
             ShowFailure("Choose your disc image and title update first.", null, null);
             return;
         }
-        settings.DiscImage = DiscBox.Text.Trim();
-        settings.TitleUpdate = UpdateBox.Text.Trim();
-        settings.OwnershipConfirmed = OwnershipBox.IsChecked == true;
+        settings.DiscImage = discPath;
+        settings.TitleUpdate = updatePath;
+        settings.OwnershipConfirmed = OwnershipCheckBox.IsChecked == true;
         settings.Save(layout.SettingsPath);
 
         HideFailure();
         cancelled = false;
+        foreach (var step in steps) step.SetState(StepState.Waiting);
+        steps[0].SetState(StepState.Active);
         SetMode(Mode.Running);
-        Progress.Value = 0;
-        LogExpander.IsExpanded = true;
-        DetailText.Text = "Starting setup.";
+        SetProgress(0, "Starting setup.");
         AppendLog($"Setup started {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         try
         {
             if (!layout.SourceIsCurrent())
             {
-                DetailText.Text = "Unpacking the source.";
+                SetProgress(1, "Unpacking the source.");
                 var written = await Task.Run(layout.ExtractPayload);
                 AppendLog($"Unpacked the source into {layout.SourceRoot} ({written} files changed).");
             }
             runner = new ScriptRunner();
             runner.Output += line => Dispatcher.BeginInvoke(() => AppendLog(line));
-            runner.Progress += progress => Dispatcher.BeginInvoke(() =>
-            {
-                Progress.Value = progress.Percent;
-                DetailText.Text = progress.Message;
-                AppendLog($"[{progress.Stage}] {progress.Message}");
-            });
+            runner.Progress += progress => Dispatcher.BeginInvoke(() => HandleProgress(progress));
             Directory.CreateDirectory(layout.UserRoot);
             var code = await runner.RunAsync(layout.Tool("setup-release.ps1"),
-                ["-IsoPath", settings.DiscImage, "-UpdatePath", settings.TitleUpdate, "-UserRoot", layout.UserRoot, "-JsonEvents"],
+                ["-IsoPath", discPath!, "-UpdatePath", updatePath!, "-UserRoot", layout.UserRoot, "-JsonEvents"],
                 layout.SourceRoot);
             runner = null;
             if (code == 0 && layout.IsReady())
             {
                 editingFiles = false;
                 SetMode(Mode.Ready);
-                StatusText.Text = "Ready to play";
                 return;
             }
+            MarkActiveStepFailed();
             SetMode(Mode.NeedsSetup);
+            HeadlineText.Text = "Setup stopped";
             if (cancelled)
             {
-                StatusText.Text = "Setup stopped";
-                DetailText.Text = "Setup continues where it stopped when you start it again.";
+                SetSubhead("It continues where it stopped when you set up again.");
                 return;
             }
             var failure = SetupFailure.Read(layout.SetupErrorPath);
-            ShowFailure(failure?.Message ?? $"Setup failed (exit code {code}). The setup log below has the details.",
+            ShowFailure(failure?.Message ?? $"Setup failed (exit code {code}). The log in the Logs folder has the details.",
                 failure?.Hint, failure?.Excerpt);
-            LogExpander.IsExpanded = true;
         }
         catch (Exception ex)
         {
             runner = null;
+            MarkActiveStepFailed();
             SetMode(Mode.NeedsSetup);
+            HeadlineText.Text = "Setup stopped";
             ShowFailure(ex.Message, null, null);
         }
+    }
+
+    private void HandleProgress(ProgressEvent progress)
+    {
+        var stage = progress.Stage == "shaders" ? "play" : progress.Stage;
+        var index = steps.ToList().FindIndex(step => step.Stage == stage);
+        if (index >= 0)
+            for (var i = 0; i < steps.Count; i++)
+                steps[i].SetState(i < index ? StepState.Complete : i == index ? StepState.Active : StepState.Waiting);
+        if (progress.Stage == "shaders") HeadlineText.Text = "Preparing graphics";
+        SetProgress(progress.Percent, progress.Message);
+        AppendLog($"[{progress.Stage}] {progress.Message}");
+    }
+
+    private void MarkActiveStepFailed()
+    {
+        foreach (var step in steps.Where(step => step.State == StepState.Active)) step.SetState(StepState.Failed);
+    }
+
+    private void SetProgress(int percent, string message)
+    {
+        BuildProgress.Value = percent;
+        ProgressText.Text = $"{percent}%";
+        ProgressMessageText.Text = message;
     }
 
     private async Task PlayAsync()
@@ -227,7 +371,7 @@ public partial class MainWindow : Window
         if (layout is null) return;
         HideFailure();
         PrimaryButton.IsEnabled = false;
-        DetailText.Text = "Starting the game.";
+        PrimaryButtonText.Text = "Starting…";
         var output = new StringBuilder();
         var launch = new ScriptRunner();
         launch.Output += line => { lock (output) output.AppendLine(line); };
@@ -238,16 +382,16 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ShowFailure("The game could not be started: " + ex.Message, null, null);
             SetMode(Mode.Ready);
+            ShowFailure("The game could not be started: " + ex.Message, null, null);
             return;
         }
         AppendLog(output.ToString().TrimEnd());
         if (code != 0)
         {
             var lines = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            ShowFailure("The game could not be started.", "Run setup again if this keeps happening.", lines.TakeLast(6).ToList());
             SetMode(Mode.Ready);
+            ShowFailure("The game could not be started.", "Run setup again if this keeps happening.", lines.TakeLast(6).ToList());
             return;
         }
         SetMode(Mode.Playing);
@@ -277,26 +421,40 @@ public partial class MainWindow : Window
         if (line.Length == 0) return;
         log.AppendLine(line);
         if (log.Length > LogLimit) log.Remove(0, log.Length - LogLimit / 2);
-        LogBox.Text = log.ToString();
-        LogBox.ScrollToEnd();
+        LogTextBox.Text = log.ToString();
+        LogTextBox.ScrollToEnd();
+    }
+
+    private void LogToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        var show = LogBox.Visibility != Visibility.Visible;
+        LogBox.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        LogToggleButton.Content = show ? "Hide details" : "Show details";
     }
 
     private void OpenSaves_Click(object sender, RoutedEventArgs e)
     {
         if (layout is null) return;
         Directory.CreateDirectory(layout.UserRoot);
-        OpenFolder(layout.UserRoot);
+        OpenUrl(layout.UserRoot);
     }
 
     private void OpenLogs_Click(object sender, RoutedEventArgs e)
     {
         if (layout is null) return;
         Directory.CreateDirectory(layout.LogsRoot);
-        OpenFolder(layout.LogsRoot);
+        OpenUrl(layout.LogsRoot);
     }
 
-    private static void OpenFolder(string path) =>
-        Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true })?.Dispose();
+    private static void OpenUrl(string target) =>
+        Process.Start(new ProcessStartInfo { FileName = target, UseShellExecute = true })?.Dispose();
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void MaximizeButton_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {

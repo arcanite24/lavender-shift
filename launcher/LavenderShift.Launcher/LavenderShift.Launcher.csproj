@@ -20,5 +20,10 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>embedded</DebugType>
+    <!-- Rendered from Branding/Mark.xaml by tools/render-brand.ps1. -->
+    <ApplicationIcon>Branding\lavender-shift.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Branding\lavender-shift.ico" />
+  </ItemGroup>
 </Project>
