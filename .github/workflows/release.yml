@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # RL-7: the tag's launcher ZIP (launcher plus a git archive of the tagged
+  # commit) and its SHA-256, attached to a draft release. Publishing the
+  # draft stays a manual step.
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Repository boundary
+        shell: powershell
+        run: ./tools/check-repository-boundary.ps1
+      - name: Package
+        id: package
+        shell: powershell
+        run: |
+          $result = ./tools/package-release.ps1 -OutputDirectory out/release
+          $result | Format-List | Out-Host
+          $version = 'v' + $result.version
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $version) {
+            throw "Tag $env:GITHUB_REF_NAME does not match the launcher version $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "zip=$($result.release)" >> $env:GITHUB_OUTPUT
+          "sha256=$($result.sha256)" >> $env:GITHUB_OUTPUT
+      - name: Draft release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = '${{ steps.package.outputs.zip }}'
+          $notes = "SHA-256 of $([IO.Path]::GetFileName($zip)): ${{ steps.package.outputs.sha256 }}`n`nYou need your own Forza Horizon 2 USA disc image and title update v2. See the README for setup."
+          gh release create '${{ steps.package.outputs.version }}' $zip "$zip.sha256" --draft --title 'Lavender Shift ${{ steps.package.outputs.version }}' --notes $notes

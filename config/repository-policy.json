@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "max_public_file_bytes": 5242880,
+  "forbidden_extensions": [
+    ".iso",
+    ".xex",
+    ".live",
+    ".pirs",
+    ".stfs",
+    ".dxil",
+    ".dxbc",
+    ".pnsp",
+    ".exe",
+    ".dll",
+    ".pdb",
+    ".dmp",
+    ".etl",
+    ".trace",
+    ".obj",
+    ".lib",
+    ".zip",
+    ".so",
+    ".apk",
+    ".aab",
+    ".idsig",
+    ".keystore",
+    ".jks",
+    ".dex",
+    ".class",
+    ".xexp",
+    ".xpso",
+    ".fbo",
+    ".ppm",
+    ".bik",
+    ".xma",
+    ".xpr",
+    ".dds"
+  ],
+  "forbidden_path_segments": [
+    ".local",
+    ".legal",
+    "private",
+    "references",
+    "assets",
+    "game",
+    "generated",
+    "sdk",
+    "build",
+    "out"
+  ],
+  "forbidden_file_name_patterns": [
+    "^TU_",
+    "^LIVE",
+    "^PIRS"
+  ],
+  "forbidden_magic_ascii": [
+    "XEX2",
+    "MZ",
+    "\u007fELF"
+  ],
+  "allowed_large_files": []
+}
