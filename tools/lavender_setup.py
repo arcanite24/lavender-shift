@@ -53,8 +53,35 @@ FH2_DISC_MEDIA_ID = 0x7C7779D1
 FH2_UPDATE_MEDIA_ID = 0x54FD9324
 
 
+# The generated code is folded against these exact executables (the runtime
+# refuses an image whose read-only data differs), so the release checks them
+# by SHA-256: the disc's three modules and the update's three patches.
+SUPPORTED_DISC_MODULES = {
+    "default.xex": "516B04D7C69313CC581062E44030AF3636F689E7F09EED1A709E4319F031FEB7",
+    "XMediaFacade_default.xex": "1B0801641622F04390ECE6CDC0E2D1C0AF3AEE47CAD59EC5C4999A3A3EA56490",
+    "SpeechFacade_default.xex": "275ED7039B08F3D9BFB0FB690B641DC9D97323E73BCF7A4618C84C0306227878",
+}
+SUPPORTED_UPDATE_PATCHES = {
+    "default.xexp": "7D7DD5DE3142CA10A1F20F202C4275CA3BD763117A59B7A6A65F364BF52296C9",
+    "SpeechFacade_default.xexp": "E524C76E947F34A822BB785FBF791A137C307DD0B34EF7CDE9E291F66F336B5F",
+    "XMediaFacade_default.xexp": "E629891D5697AEF11761225AC8C4BD51F41947E62DFABF9B405473623250BC1F",
+}
+
+
 class SetupError(RuntimeError):
     pass
+
+
+def check_supported(listing: list[dict], supported: dict[str, str], what: str) -> None:
+    by_name = {entry["path"].lower(): entry["sha256"] for entry in listing}
+    for name, expected in supported.items():
+        actual = by_name.get(name.lower())
+        if actual is None:
+            raise SetupError(f"the {what} has no {name}")
+        if actual != expected:
+            raise SetupError(f"the {what}'s {name} is not the supported revision "
+                             f"(SHA-256 {actual[:16]}..., expected {expected[:16]}...): "
+                             "Lavender Shift supports the USA disc and title update v2 only")
 
 
 def sha256_bytes(blob: bytes) -> str:
@@ -262,6 +289,11 @@ def extract_disc(iso: Path) -> None:
                 print(f"disc: {done / 1e9:.2f} of {total / 1e9:.2f} GB", flush=True)
     finally:
         disc.close()
+    try:
+        check_supported(listing, SUPPORTED_DISC_MODULES, "disc image")
+    except SetupError:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
     swap_in(staging, target)
     write_catalog(GAME / "disc-catalog.json", {
         "source": iso.name, "file_count": len(listing), "total_bytes": total,
@@ -302,6 +334,11 @@ def extract_update(source: Path) -> None:
         blob = package.read(entry)
         destination.write_bytes(blob)
         listing.append({"path": entry["path"], "size": len(blob), "sha256": sha256_bytes(blob)})
+    try:
+        check_supported(listing, SUPPORTED_UPDATE_PATCHES, "title update")
+    except SetupError:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
     swap_in(staging, target)
     write_catalog(GAME / "update-catalog.json", {
         "source": source.name, "package": name, "package_sha256": sha256_bytes(data),
