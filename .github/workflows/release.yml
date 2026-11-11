@@ -64,21 +64,23 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
+      - name: Repository boundary
+        shell: powershell
+        run: ./tools/check-repository-boundary.ps1
+      # Outside the checkout: the payload is HEAD, and the boundary check
+      # would refuse the archives in the working tree.
       - uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           name: prebuilt-windows
-          path: .artifacts/prebuilt
-      - name: Repository boundary
-        shell: powershell
-        run: ./tools/check-repository-boundary.ps1
+          path: ${{ runner.temp }}/prebuilt
       - name: Package
         id: package
         shell: powershell
         run: |
           $arguments = @{ OutputDirectory = 'out/release' }
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and (Test-Path .artifacts/prebuilt/*.json)) {
-            $arguments.PrebuiltAssets = '.artifacts/prebuilt'
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and (Test-Path "$env:RUNNER_TEMP/prebuilt/*.json")) {
+            $arguments.PrebuiltAssets = Join-Path $env:RUNNER_TEMP 'prebuilt'
             $arguments.ReleaseBaseUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME"
           }
           $result = ./tools/package-release.ps1 @arguments
@@ -97,7 +99,7 @@ jobs:
         run: |
           $zip = '${{ steps.package.outputs.zip }}'
           # The prebuilt assets the payload pins; their .json sidecars stay out.
-          $assets = @(Get-ChildItem .artifacts/prebuilt -File -ErrorAction SilentlyContinue |
+          $assets = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'prebuilt') -File -ErrorAction SilentlyContinue |
             Where-Object Extension -ne '.json' | ForEach-Object FullName)
           $notes = "SHA-256 of $([IO.Path]::GetFileName($zip)): ${{ steps.package.outputs.sha256 }}`n`nYou need your own Forza Horizon 2 USA disc image and title update v2, and a CPU with AVX2 (Intel Haswell, AMD Zen or newer). See the README for setup."
           gh release create '${{ steps.package.outputs.version }}' $zip "$zip.sha256" @assets --draft --title 'Lavender Shift ${{ steps.package.outputs.version }}' --notes $notes
