@@ -34,7 +34,7 @@ build. Linux, macOS, Android and mods come later.
 | RL-6 | **Repository readiness**: README for players, `docs/LEGAL.md`, LICENSE, THIRD_PARTY_NOTICES, CONTRIBUTING, SECURITY, issue templates; audit that no game data, disassembly or keys are tracked | an audit script finds nothing; the docs say what a player needs | done 2026-11-10: LICENSE (BSD 3-Clause), `docs/LEGAL.md`, `THIRD_PARTY_NOTICES.md`, CONTRIBUTING, SECURITY, the problem-report issue template; `tools/check-repository-boundary.ps1` passes and the full history holds no game-type or large blobs, keys or tokens |
 | RL-7 | **CI and release workflow**: build check on push; tag `v*` builds the launcher zip and drafts a release with notes and the hash | a test tag produces a draft release | done 2026-11-10: CI green on `main`; tag `v0.0.1` built the kit (13.7 min on the runner) and the LLVM repack (same SHA-256 as a local repack) and drafted the release with the launcher ZIP and both assets pinned in its payload |
 | RL-10 | **Prebuilt pieces** (Pinyon Shift's TP-1 to TP-4): a trimmed LLVM (`tools/repack-toolchain.py`), the ShiftGlue kit (`tools/build-shiftglue-kit.ps1`: generator, runtime and GPU DLLs, CMake package, C++ runtime, built with the game's x86-64-v3 flags), pinned in the payload by `tools/apply-prebuilt-pins.py` from `package-release.ps1 -PrebuiltAssets`; with the kit, the launcher's Microsoft license box lets xwin fetch the C++ libraries and Windows SDK in place of the Build Tools | a packaged install with the pins sets up without Git, a ShiftGlue build or the Build Tools, and plays | done 2026-11-10 on multivac (`D:\lavender-tp-test`, assets from a local folder, license accepted): whole setup 6.1 min (was about 12 min from source), codegen 103 s, game configure 10 s and build 110 s (was 5.4 min with the SDK sub-build), no generator build; reaches the title screen. Kit 24 MB (built in 4 min), LLVM repack 89 MB (253 MB unpacked), sysroot 786 MB from Microsoft. Pinyon's kit can't be reused: other ShiftGlue revision and CPU baseline. Host objects not ported (one host file reads generated headers). The workflow publishes the kit only when `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT` is set (NGX loader, docs/LEGAL.md) |
-| RL-8 | **Release candidate**: clean-machine run (blindvac, a fresh Windows user), a 30-minute play session, known issues written down | the user approves publishing | open |
+| RL-8 | **Release candidate**: clean-machine run (blindvac, a fresh Windows user), a 30-minute play session, known issues written down | the user approves publishing | blindvac run 2026-11-10 (i5-8250U, UHD 620, no Visual Studio, Git or .NET): setup from the release ZIP through the launcher in 16.7 min with the prebuilt kit and fetched Microsoft libraries, 9.9 GB installed, title and opening drive reached with the keyboard after three fixes below; 30-minute session and approval open |
 | RL-9 | **Publish**: create the public GitHub repository, push, publish 0.0.1 | user's call; nothing is published before it | repository public at github.com/arcanite24/lavender-shift since 2026-11-10 (ShiftGlue pin pushed); release v0.0.1 is a draft until the maintainer publishes it |
 
 ## Decisions taken
@@ -73,11 +73,17 @@ build. Linux, macOS, Android and mods come later.
   confirmed on 2026-11-10 that NVIDIA's approval covers publishing it.
   The repository variable `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT=true`
   turns it on; without it a release ships the trimmed LLVM only.
-- RL-8 on blindvac: its UHD 620 and 8 GB are the low end, and a fresh
-  Windows user there checks the Build Tools install path.
 
 ## Problems the packaged test found (fixed)
 
+- blindvac: the disk check reserved room for the Build Tools even when
+  setup fetches the Microsoft libraries, and its hint named a launcher
+  option Lavender does not have. It now asks for 20 GB.
+- blindvac: xwin and the kit's `rexglue.exe` exited with 0xC0000135 on a
+  PC without the Visual C++ runtime. Setup copies the kit's `redist`
+  DLLs beside both.
+- blindvac: with no controller, Return did nothing at the title. New
+  configs now turn on `mnk_mode`, as Pinyon Shift does.
 - Started from a PowerShell 7 prompt, the launcher handed Windows
   PowerShell 7's `PSModulePath`, and setup failed with "Get-FileHash is
   not recognized". The launcher now removes the variable for setup.

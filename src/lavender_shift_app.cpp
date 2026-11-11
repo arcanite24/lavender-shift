@@ -142,6 +142,9 @@ void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
     config_created_ = true;
     std::ofstream file(paths.config_path);
     file << "# Lavender Shift settings, written by the in-game menu (F6).\n";
+    // Keyboard and mouse beside any controller, as in Pinyon Shift: without
+    // it a player with no controller cannot press Start at the title.
+    file << "mnk_mode = true\n";
     // Driving-first keyboard keys (src/config/default_keys.h); older files
     // keep theirs until RESET KEYS on the CONTROLS page.
     for (const auto& key : lavender_shift::config::kDefaultKeys) {
