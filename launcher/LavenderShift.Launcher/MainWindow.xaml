@@ -1,0 +1,78 @@
+<Window x:Class="LavenderShift.Launcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Lavender Shift" Width="760" Height="640" MinWidth="620" MinHeight="520"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Background}"
+        FontFamily="Segoe UI" FontSize="13">
+  <Grid Margin="28,24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="Lavender Shift" FontSize="28" FontWeight="SemiBold" />
+        <TextBlock x:Name="VersionText" Margin="12,0,0,5" VerticalAlignment="Bottom" Foreground="{StaticResource Muted}" />
+      </StackPanel>
+      <TextBlock Margin="0,4,0,0" Foreground="{StaticResource Muted}"
+                 Text="Forza Horizon 2 (Xbox 360) recompiled for Windows. The game is built on this PC from your own disc image; no game files come with this download." />
+    </StackPanel>
+
+    <!-- Setup: the player's two files. -->
+    <Border x:Name="SetupPanel" Grid.Row="1" Margin="0,20,0,0" Padding="18,16" CornerRadius="6"
+            Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1">
+      <StackPanel>
+        <TextBlock Text="Your game files" FontWeight="SemiBold" FontSize="15" />
+        <TextBlock Margin="0,10,0,4" Text="Forza Horizon 2 disc image, USA (.iso)" Foreground="{StaticResource Muted}" />
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="Browse…" Click="BrowseDisc_Click" />
+          <TextBox x:Name="DiscBox" TextChanged="Inputs_Changed" />
+        </DockPanel>
+        <TextBlock Margin="0,10,0,4" Text="Title update v2 (the package, or a .zip holding it)" Foreground="{StaticResource Muted}" />
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="Browse…" Click="BrowseUpdate_Click" />
+          <TextBox x:Name="UpdateBox" TextChanged="Inputs_Changed" />
+        </DockPanel>
+        <CheckBox x:Name="OwnershipBox" Margin="0,14,0,0" Checked="Inputs_Changed" Unchecked="Inputs_Changed">
+          <TextBlock Text="I own this game, and I made these files from my own disc and console." />
+        </CheckBox>
+        <TextBlock x:Name="SetupNote" Margin="0,12,0,0" Foreground="{StaticResource Muted}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Progress and the result of the last setup. -->
+    <StackPanel Grid.Row="2" Margin="0,18,0,0">
+      <TextBlock x:Name="StatusText" FontSize="15" FontWeight="SemiBold" />
+      <ProgressBar x:Name="Progress" Height="6" Margin="0,8,0,0" Minimum="0" Maximum="100" Visibility="Collapsed"
+                   Foreground="{StaticResource Accent}" Background="{StaticResource Surface}" BorderThickness="0" />
+      <TextBlock x:Name="DetailText" Margin="0,6,0,0" Foreground="{StaticResource Muted}" />
+      <Border x:Name="FailurePanel" Margin="0,10,0,0" Padding="14,10" CornerRadius="6" Visibility="Collapsed"
+              BorderBrush="{StaticResource Danger}" BorderThickness="1">
+        <StackPanel>
+          <TextBlock x:Name="FailureText" Foreground="{StaticResource Danger}" FontWeight="SemiBold" />
+          <TextBlock x:Name="FailureExcerpt" Margin="0,6,0,0" FontFamily="Cascadia Mono, Consolas" FontSize="12"
+                     Foreground="{StaticResource Muted}" />
+          <TextBlock x:Name="FailureHint" Margin="0,6,0,0" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <Expander x:Name="LogExpander" Grid.Row="3" Margin="0,14,0,0" Foreground="{StaticResource Muted}" Header="Setup log">
+      <TextBox x:Name="LogBox" Margin="0,6,0,0" IsReadOnly="True" TextWrapping="NoWrap"
+               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+               FontFamily="Cascadia Mono, Consolas" FontSize="11.5" />
+    </Expander>
+
+    <DockPanel Grid.Row="4" Margin="0,16,0,0" LastChildFill="False">
+      <Button x:Name="PrimaryButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Click="PrimaryButton_Click" />
+      <Button x:Name="RepairButton" DockPanel.Dock="Right" Margin="0,0,10,0" Content="Run setup again" Click="RepairButton_Click" />
+      <Button x:Name="ChangeFilesButton" DockPanel.Dock="Right" Margin="0,0,10,0" Content="Change files" Click="ChangeFilesButton_Click" />
+      <Button DockPanel.Dock="Left" Content="Saves" Click="OpenSaves_Click" ToolTip="Open the folder with your saves and settings" />
+      <Button DockPanel.Dock="Left" Margin="8,0,0,0" Content="Logs" Click="OpenLogs_Click" ToolTip="Open the setup and game logs" />
+    </DockPanel>
+  </Grid>
+</Window>

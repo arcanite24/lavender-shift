@@ -5,3 +5,6 @@ out/
 # Codegen rewrites its CMake template here on every run; the build uses the
 # edited copy in cmake/rexglue.cmake.
 /generated/
+# Launcher build output.
+launcher/**/bin/
+launcher/**/obj/

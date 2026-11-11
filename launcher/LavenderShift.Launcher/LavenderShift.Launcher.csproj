@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>LavenderShiftLauncher</AssemblyName>
+    <RootNamespace>LavenderShift.Launcher</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Lavender Shift Launcher</Product>
+    <Description>Builds Lavender Shift locally from the player's own Forza Horizon 2 disc image and title update.</Description>
+    <Authors>Lavender Shift contributors</Authors>
+    <Copyright>Copyright © 2026 Lavender Shift contributors</Copyright>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+</Project>
