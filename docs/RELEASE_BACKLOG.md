@@ -27,12 +27,12 @@ build. Linux, macOS, Android and mods come later.
 | ID | Item | Done when | Status |
 | --- | --- | --- | --- |
 | RL-1 | **Release toolchain**: `config/release-toolchain.json` (CMake, Ninja, LLVM, Python, MinGit, Build Tools, ShiftGlue pin) and `tools/provision-toolchain.ps1` | a fresh folder provisions every tool from pinned, hashed downloads; `build.ps1` reads the manifest instead of fixed folder names | done: a fresh folder (`D:\lavender-rl-test`, no `.local`) provisions every tool under Windows PowerShell 5.1; `build.ps1` reads the manifest |
-| RL-2 | **Setup script**: `tools/setup-release.ps1 -IsoPath -UpdatePath -JsonEvents`, checks Windows, disk space, running game; disc and update verify; extract; generator; codegen; build; `setup-error.json` on failure | a source archive plus the two player files reach a built exe with no checkout and no Pinyon toolchain | open |
+| RL-2 | **Setup script**: `tools/setup-release.ps1 -IsoPath -UpdatePath -JsonEvents`, checks Windows, disk space, running game; disc and update verify; extract; generator; codegen; build; `setup-error.json` on failure | a source archive plus the two player files reach a built exe with no checkout and no Pinyon toolchain | done 2026-11-10: from a source copy with no `.local` to a built exe, AOT pipelines and `setup-state.json` on multivac (generator 1.5 min, codegen 2.3 min, game 5.4 min; tools and extraction a few minutes more) |
 | RL-3 | **State root**: saves, config and logs under one player folder (`%LOCALAPPDATA%\LavenderShift\...` or portable `data\`), passed to the game | launch from the launcher and from `launch.ps1` share one save | done: portable layout, `user\` beside the launcher (see Decisions); `launch.ps1 -UserRoot` and the launcher use the same folder |
-| RL-4 | **Launcher**: WPF, Lavender branding; first-run screen (choose disc image and title update, install folder, progress per stage, failure report); play screen (Play, settings that exist in the game's own menu stay there, open logs and saves folders, check for updates) | setup and play work from the packaged archive on multivac and on blindvac | first version: `launcher/LavenderShift.Launcher` (setup, progress, failure report, play, saves and logs folders); no update check yet; packaged run pending |
-| RL-5 | **Packaging**: `tools/package-launcher.ps1` builds `LavenderShift-Launcher.zip` with the launcher, a source payload (git archive of the tag plus the ShiftGlue pin) and SHA-256 | the zip installs and plays on a machine that never had the repository | script written: `tools/package-release.ps1`; packaged install not yet tested |
-| RL-6 | **Repository readiness**: README for players, `docs/LEGAL.md`, LICENSE, THIRD_PARTY_NOTICES, CONTRIBUTING, SECURITY, issue templates; audit that no game data, disassembly or keys are tracked | an audit script finds nothing; the docs say what a player needs | open |
-| RL-7 | **CI and release workflow**: build check on push; tag `v*` builds the launcher zip and drafts a release with notes and the hash | a test tag produces a draft release | open |
+| RL-4 | **Launcher**: WPF, Lavender branding; first-run screen (choose disc image and title update, install folder, progress per stage, failure report); play screen (Play, settings that exist in the game's own menu stay there, open logs and saves folders, check for updates) | setup and play work from the packaged archive on multivac and on blindvac | first version works on multivac from the packaged ZIP: setup driven through the window, the failure screen (unpushed ShiftGlue pin), retry, Play and back to Ready; no update check yet; blindvac run is RL-8 |
+| RL-5 | **Packaging**: `tools/package-launcher.ps1` builds `LavenderShift-Launcher.zip` with the launcher, a source payload (git archive of the tag plus the ShiftGlue pin) and SHA-256 | the zip installs and plays on a machine that never had the repository | done on multivac: `tools/package-release.ps1` makes `LavenderShift-0.1.0-windows-x64.zip` (63.5 MB, 125 source files); installs and plays from `D:\lavender-pkg-test` |
+| RL-6 | **Repository readiness**: README for players, `docs/LEGAL.md`, LICENSE, THIRD_PARTY_NOTICES, CONTRIBUTING, SECURITY, issue templates; audit that no game data, disassembly or keys are tracked | an audit script finds nothing; the docs say what a player needs | drafted: LICENSE (BSD 3-Clause, as Pinyon), `docs/LEGAL.md`, `THIRD_PARTY_NOTICES.md`, CONTRIBUTING, SECURITY, `tools/check-repository-boundary.ps1` passes; issue templates and the users licence approval open |
+| RL-7 | **CI and release workflow**: build check on push; tag `v*` builds the launcher zip and drafts a release with notes and the hash | a test tag produces a draft release | written (`.github/workflows/ci.yml`, `release.yml`); untested until the repository is on GitHub |
 | RL-8 | **Release candidate**: clean-machine run (blindvac, a fresh Windows user), a 30-minute play session, known issues written down | the user approves publishing | open |
 | RL-9 | **Publish**: create the public GitHub repository, push, publish 0.1.0 | user's call; nothing is published before it | open |
 
@@ -58,3 +58,25 @@ build. Linux, macOS, Android and mods come later.
 - Progress: setup emits `::lavender::{stage, percent, message}` lines;
   the two Ninja builds report their `[done/total]` counter, so the bar
   moves during the hour-long first build.
+
+## Before publishing
+
+- **ShiftGlue main must be pushed.** The release pin (1b009e88, AO and
+  the AO flicker fix) exists only on multivac; a player's setup stops at
+  "Fetching the pinned ShiftGlue revision failed" until it is on GitHub.
+- Create the GitHub repository and push `main` (RL-9), then a test tag
+  for the release workflow (RL-7).
+- Confirm the licence (RL-6).
+- RL-8 on blindvac: its UHD 620 and 8 GB are the low end, and a fresh
+  Windows user there checks the Build Tools install path.
+
+## Problems the packaged test found (fixed)
+
+- Started from a PowerShell 7 prompt, the launcher handed Windows
+  PowerShell 7's `PSModulePath`, and setup failed with "Get-FileHash is
+  not recognized". The launcher now removes the variable for setup.
+- Windows PowerShell 5.1 turned a CMake warning on stderr into a
+  terminating error; `build.ps1` now judges native commands by exit code.
+- A failed ShiftGlue fetch left an empty `--no-checkout` clone that the
+  next setup refused as "local changes". A `.local\rexglue.prepared`
+  marker now tells a finished checkout from an interrupted one.
