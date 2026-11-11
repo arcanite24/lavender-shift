@@ -36,7 +36,7 @@ jobs:
         run: |
           . ./tools/release-common.ps1
           $config = Get-LavenderReleaseToolchain
-          $output = Resolve-LavenderLocalPath -RelativePath '.artifacts/prebuilt'
+          $output = Join-Path (Get-Location) '.artifacts/prebuilt'
           [void](New-Item -ItemType Directory -Force -Path $output)
           & (Get-LavenderPython) -I tools/repack-toolchain.py llvm --platform windows-x64 `
             --source (Resolve-LavenderLocalPath -RelativePath $config.llvm.install_path) `
