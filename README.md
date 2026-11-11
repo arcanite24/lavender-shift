@@ -32,6 +32,27 @@ Saves and settings live in `user` beside the launcher. To update, extract
 a newer release into the same folder and run setup again: it rebuilds what
 changed and keeps your extracted files and saves.
 
+## Playing on Android
+
+The launcher builds an Android package from your PC's build, for your own
+device: arm64, ARMv8.2 or newer, Android 13 or later, Vulkan 1.3 and about
+9 GB free (internal storage or an SD card). After setup, open **Android**
+at the bottom of the launcher:
+
+1. **Build APK** compiles the game for Android (15 to 45 minutes the first
+   time, about 15 GB of disk). It downloads the Android NDK and
+   platform-tools from Google once, after you accept the Android SDK
+   licence; the rest (ShiftGlue for Android and the app) comes prebuilt
+   with the release. No Android Studio or Java needed.
+2. **Share on Wi-Fi** shows a QR code and a pairing code: install the app
+   from the page it opens on the device, then open Lavender Shift there
+   and enter the code to copy the game files across (and, if you tick
+   them, this PC's save and settings; the device's own are backed up
+   first). With USB debugging on, **Install over USB** installs the app
+   and copies the game files over adb.
+
+Details, settings and results are in [docs/ANDROID.md](docs/ANDROID.md).
+
 ## Building from a checkout (Windows)
 
 `tools/setup-release.ps1` is what the launcher runs, and works the same in

@@ -17,15 +17,49 @@ files go from the PC to the device over adb.
 
 ## Requirements
 
-- A Windows PC where the game is already built (`tools/build.ps1`): the
-  Android build compiles the code translated there again for arm64 and runs
-  the PC's generator.
-- The Android SDK with platform-tools, build-tools 36.0.0, android-36 and NDK
-  29.0.14206865 (`config/android-toolchain.json`), and JDK 17 or newer
-  (`JAVA_HOME` or `javac` on `PATH`).
+- A Windows PC where the game is already built (the launcher's setup or
+  `tools/build.ps1`): the Android build compiles the code translated there
+  again for arm64 and runs the PC's generator.
+- From a release: nothing else. `doctor --install` downloads NDK
+  29.0.14206865 (r29) and platform-tools from Google, pinned by SHA-256 in
+  `config/android-toolchain.json`, into `.local/toolchain/android-sdk`
+  when no Android SDK is installed. From a checkout without the prebuilt
+  shell: the Android SDK with build-tools 36.0.0 and android-36 too, and
+  JDK 17 or newer (`JAVA_HOME` or `javac` on `PATH`).
 - The device: arm64 with an ARMv8.2 CPU (the libraries target
-  `armv8.2-a`), Android 13 or later, Vulkan 1.3, and about 8 GB free on
+  `armv8.2-a`), Android 13 or later, Vulkan 1.3, and about 9 GB free on
   internal storage or an SD card.
+
+## What a release ships prebuilt
+
+As in Pinyon Shift (its TP-5), a release attaches the **Android shell**
+(`lavender_android.py shell`, the `prebuilt-android` job of
+`.github/workflows/release.yml`): ShiftGlue built for Android at the
+pinned revision (`librexruntime.so`, `librexgpu-fh1.so` and its CMake
+package), libadrenotools' four hooks, and the app's linked manifest,
+resources and `classes.dex`. `tools/apply-prebuilt-pins.py` pins it in the
+payload's `config/release-toolchain.json` (`android_shell`), and the build
+uses it when its ShiftGlue revision, NDK and version match. The player's
+PC then compiles only what comes from their disc: `libmain.so` (the
+translated game and this repository's sources) and the two facades. It
+needs no JDK, SDK build-tools or platform. `LAVENDER_SHIFT_SOURCE_SDK=1`
+builds everything from source instead.
+
+The bundled GPU driver, Turnip Gen8 V37, is downloaded from its author's
+release and pinned by SHA-256 (`drivers` in
+`config/android-toolchain.json`; the same file as the one measured
+below), so a player's package carries it as a developer's does.
+
+## From the launcher
+
+After setup, **Android** at the bottom of the launcher opens the Android
+panel (`MainWindow.Android.cs`). **Build APK** shows the Android SDK
+licence and runs `tools/android.ps1 doctor`, `doctor --install
+--accept-licenses` and `build` with the toolchain's Python. **Share on
+Wi-Fi** serves the package and the game files to the app on the device,
+and **Install over USB** (shown when adb sees a device) runs `install`
+and `push-data`. The steps' output goes to `.local\logs\android.log` in
+the source folder.
 
 ## Build, install and run
 

@@ -7,7 +7,10 @@ downloads in place of building them: a trimmed copy of the pinned LLVM
 release (its tools and compiler headers, with LLVM's licence), and the
 ShiftGlue kit, ShiftGlue built at the pinned revision with the
 Microsoft C++ runtime DLLs it needs (redistributable under the Visual
-Studio licence) and the licences of the code it contains.
+Studio licence) and the licences of the code it contains. A third, the
+Android shell, is ShiftGlue built for Android with libadrenotools' hooks
+and the app's compiled Java code (with SDL's), which the Android build
+uses in place of building them.
 
 - [ShiftGlue SDK](https://github.com/arcanite24/shiftglue-sdk), a fork of
   the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
@@ -23,6 +26,13 @@ Studio licence) and the licences of the code it contains.
   [xwin](https://github.com/Jake-Shadle/xwin)
 - AMD FidelityFX and NVIDIA DLSS runtimes, fetched by ShiftGlue's pinned,
   hashed modules when the game is configured
+- For the Android build: the [Android NDK and platform-tools](https://developer.android.com/studio/terms)
+  from Google (the player accepts the Android SDK licence in the launcher
+  first; `config/android-toolchain.json`), and
+  [Turnip Gen8 V37](https://github.com/StevenMXZ/Adreno-Tools-Drivers/releases/tag/v37),
+  StevenMXZ's build of Mesa's Turnip Vulkan driver (MIT), bundled
+  unmodified in the package with its notice
+  (`android/drivers/turnip-gen8-v37/NOTICE.txt`)
 
 Exact versions, source URLs and archive hashes are recorded in
 `config/release-toolchain.json`. ShiftGlue's own dependencies (SDL3,
