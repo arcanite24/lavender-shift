@@ -31,11 +31,11 @@ build. Linux, macOS, Android and mods come later.
 | RL-3 | **State root**: saves, config and logs under one player folder (`%LOCALAPPDATA%\LavenderShift\...` or portable `data\`), passed to the game | launch from the launcher and from `launch.ps1` share one save | done: portable layout, `user\` beside the launcher (see Decisions); `launch.ps1 -UserRoot` and the launcher use the same folder |
 | RL-4 | **Launcher**: WPF, Lavender branding; first-run screen (choose disc image and title update, install folder, progress per stage, failure report); play screen (Play, settings that exist in the game's own menu stay there, open logs and saves folders, check for updates) | setup and play work from the packaged archive on multivac and on blindvac | first version works on multivac from the packaged ZIP: setup driven through the window, the failure screen (unpushed ShiftGlue pin), retry, Play and back to Ready; no update check yet; blindvac run is RL-8 |
 | RL-5 | **Packaging**: `tools/package-launcher.ps1` builds `LavenderShift-Launcher.zip` with the launcher, a source payload (git archive of the tag plus the ShiftGlue pin) and SHA-256 | the zip installs and plays on a machine that never had the repository | done on multivac: `tools/package-release.ps1` makes `LavenderShift-0.1.0-windows-x64.zip` (63.5 MB, 125 source files); installs and plays from `D:\lavender-pkg-test` |
-| RL-6 | **Repository readiness**: README for players, `docs/LEGAL.md`, LICENSE, THIRD_PARTY_NOTICES, CONTRIBUTING, SECURITY, issue templates; audit that no game data, disassembly or keys are tracked | an audit script finds nothing; the docs say what a player needs | drafted: LICENSE (BSD 3-Clause, as Pinyon), `docs/LEGAL.md`, `THIRD_PARTY_NOTICES.md`, CONTRIBUTING, SECURITY, `tools/check-repository-boundary.ps1` passes; issue templates and the users licence approval open |
-| RL-7 | **CI and release workflow**: build check on push; tag `v*` builds the launcher zip and drafts a release with notes and the hash | a test tag produces a draft release | written (`.github/workflows/ci.yml`, `release.yml`); untested until the repository is on GitHub |
+| RL-6 | **Repository readiness**: README for players, `docs/LEGAL.md`, LICENSE, THIRD_PARTY_NOTICES, CONTRIBUTING, SECURITY, issue templates; audit that no game data, disassembly or keys are tracked | an audit script finds nothing; the docs say what a player needs | done 2026-11-10: LICENSE (BSD 3-Clause), `docs/LEGAL.md`, `THIRD_PARTY_NOTICES.md`, CONTRIBUTING, SECURITY, the problem-report issue template; `tools/check-repository-boundary.ps1` passes and the full history holds no game-type or large blobs, keys or tokens |
+| RL-7 | **CI and release workflow**: build check on push; tag `v*` builds the launcher zip and drafts a release with notes and the hash | a test tag produces a draft release | done 2026-11-10: CI green on `main`; tag `v0.0.1` built the kit (13.7 min on the runner) and the LLVM repack (same SHA-256 as a local repack) and drafted the release with the launcher ZIP and both assets pinned in its payload |
 | RL-10 | **Prebuilt pieces** (Pinyon Shift's TP-1 to TP-4): a trimmed LLVM (`tools/repack-toolchain.py`), the ShiftGlue kit (`tools/build-shiftglue-kit.ps1`: generator, runtime and GPU DLLs, CMake package, C++ runtime, built with the game's x86-64-v3 flags), pinned in the payload by `tools/apply-prebuilt-pins.py` from `package-release.ps1 -PrebuiltAssets`; with the kit, the launcher's Microsoft license box lets xwin fetch the C++ libraries and Windows SDK in place of the Build Tools | a packaged install with the pins sets up without Git, a ShiftGlue build or the Build Tools, and plays | done 2026-11-10 on multivac (`D:\lavender-tp-test`, assets from a local folder, license accepted): whole setup 6.1 min (was about 12 min from source), codegen 103 s, game configure 10 s and build 110 s (was 5.4 min with the SDK sub-build), no generator build; reaches the title screen. Kit 24 MB (built in 4 min), LLVM repack 89 MB (253 MB unpacked), sysroot 786 MB from Microsoft. Pinyon's kit can't be reused: other ShiftGlue revision and CPU baseline. Host objects not ported (one host file reads generated headers). The workflow publishes the kit only when `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT` is set (NGX loader, docs/LEGAL.md) |
 | RL-8 | **Release candidate**: clean-machine run (blindvac, a fresh Windows user), a 30-minute play session, known issues written down | the user approves publishing | open |
-| RL-9 | **Publish**: create the public GitHub repository, push, publish 0.0.1 | user's call; nothing is published before it | open |
+| RL-9 | **Publish**: create the public GitHub repository, push, publish 0.0.1 | user's call; nothing is published before it | repository public at github.com/arcanite24/lavender-shift since 2026-11-10 (ShiftGlue pin pushed); release v0.0.1 is a draft until the maintainer publishes it |
 
 ## Decisions taken
 
@@ -62,12 +62,13 @@ build. Linux, macOS, Android and mods come later.
 
 ## Before publishing
 
-- **ShiftGlue main must be pushed.** The release pin (1b009e88, AO and
-  the AO flicker fix) exists only on multivac; a player's setup stops at
-  "Fetching the pinned ShiftGlue revision failed" until it is on GitHub.
-- Create the GitHub repository and push `main` (RL-9), then a test tag
-  for the release workflow (RL-7).
-- Confirm the licence (RL-6).
+- Done 2026-11-10: ShiftGlue main pushed (pin 1b009e88), repository
+  public, CI green, `v0.0.1` drafted with the kit and LLVM. The draft's
+  launcher ZIP, with its assets seeded from the draft (draft assets need a
+  login until published), set up through the launcher in 5.4 min on
+  multivac and reached the title screen.
+- Publishing the draft makes the asset URLs public; setup downloads them
+  from there.
 - The ShiftGlue kit links NVIDIA's static NGX loader; the maintainer
   confirmed on 2026-11-10 that NVIDIA's approval covers publishing it.
   The repository variable `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT=true`
