@@ -96,8 +96,8 @@ try {
     # RL-10: a release pins the prebuilt ShiftGlue kit; without one, or when
     # it cannot be fetched, ShiftGlue is cloned and built from source.
     $kitRoot = Get-LavenderShiftGlueKitRoot
-    if (-not $kitRoot -and $null -ne (Get-LavenderShiftGlueKitEntry)) {
-        Write-LavenderEvent tools 33 'Downloading the prebuilt recompiler and runtime.' -JsonEvents:$JsonEvents
+    if ($null -ne (Get-LavenderShiftGlueKitEntry)) {
+        if (-not $kitRoot) { Write-LavenderEvent tools 33 'Downloading the prebuilt recompiler and runtime.' -JsonEvents:$JsonEvents }
         $kitRoot = Install-LavenderShiftGlueKit
         if (-not $kitRoot) { Install-LavenderGit }
     }
