@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
       - name: Prepare the toolchain
         shell: powershell
         run: ./tools/provision-toolchain.ps1
@@ -28,10 +28,10 @@ jobs:
         shell: powershell
         env:
           # rexruntime.dll links NVIDIA's static NGX (DLSS) loader, so a
-          # published kit is a binary release of it. Pinyon Shift publishes
-          # its kit under NVIDIA's approval for that project; this switch
-          # holds Lavender Shift's back until the maintainer confirms the
-          # same for it (docs/LEGAL.md). The LLVM repack is published either way.
+          # published kit is a binary release of it. The maintainer confirmed
+          # on 2026-11-10 that NVIDIA's approval covers it, as for Pinyon
+          # Shift's kit (docs/LEGAL.md); the repository variable stays as the
+          # switch to hold it back. The LLVM repack is published either way.
           PUBLISH_KIT: ${{ vars.LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT }}
         run: |
           . ./tools/release-common.ps1

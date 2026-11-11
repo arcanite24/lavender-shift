@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>LavenderShiftLauncher</AssemblyName>
     <RootNamespace>LavenderShift.Launcher</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.0.1</Version>
     <Product>Lavender Shift Launcher</Product>
     <Description>Builds Lavender Shift locally from the player's own Forza Horizon 2 disc image and title update.</Description>
     <Authors>Lavender Shift contributors</Authors>

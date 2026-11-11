@@ -35,7 +35,7 @@ build. Linux, macOS, Android and mods come later.
 | RL-7 | **CI and release workflow**: build check on push; tag `v*` builds the launcher zip and drafts a release with notes and the hash | a test tag produces a draft release | written (`.github/workflows/ci.yml`, `release.yml`); untested until the repository is on GitHub |
 | RL-10 | **Prebuilt pieces** (Pinyon Shift's TP-1 to TP-4): a trimmed LLVM (`tools/repack-toolchain.py`), the ShiftGlue kit (`tools/build-shiftglue-kit.ps1`: generator, runtime and GPU DLLs, CMake package, C++ runtime, built with the game's x86-64-v3 flags), pinned in the payload by `tools/apply-prebuilt-pins.py` from `package-release.ps1 -PrebuiltAssets`; with the kit, the launcher's Microsoft license box lets xwin fetch the C++ libraries and Windows SDK in place of the Build Tools | a packaged install with the pins sets up without Git, a ShiftGlue build or the Build Tools, and plays | done 2026-11-10 on multivac (`D:\lavender-tp-test`, assets from a local folder, license accepted): whole setup 6.1 min (was about 12 min from source), codegen 103 s, game configure 10 s and build 110 s (was 5.4 min with the SDK sub-build), no generator build; reaches the title screen. Kit 24 MB (built in 4 min), LLVM repack 89 MB (253 MB unpacked), sysroot 786 MB from Microsoft. Pinyon's kit can't be reused: other ShiftGlue revision and CPU baseline. Host objects not ported (one host file reads generated headers). The workflow publishes the kit only when `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT` is set (NGX loader, docs/LEGAL.md) |
 | RL-8 | **Release candidate**: clean-machine run (blindvac, a fresh Windows user), a 30-minute play session, known issues written down | the user approves publishing | open |
-| RL-9 | **Publish**: create the public GitHub repository, push, publish 0.1.0 | user's call; nothing is published before it | open |
+| RL-9 | **Publish**: create the public GitHub repository, push, publish 0.0.1 | user's call; nothing is published before it | open |
 
 ## Decisions taken
 
@@ -68,10 +68,10 @@ build. Linux, macOS, Android and mods come later.
 - Create the GitHub repository and push `main` (RL-9), then a test tag
   for the release workflow (RL-7).
 - Confirm the licence (RL-6).
-- Decide whether NVIDIA's DLSS terms cover publishing the ShiftGlue kit
-  (it links the static NGX loader), then set the repository variable
-  `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT=true`. Until then a release ships
-  the trimmed LLVM only and setup builds ShiftGlue from source.
+- The ShiftGlue kit links NVIDIA's static NGX loader; the maintainer
+  confirmed on 2026-11-10 that NVIDIA's approval covers publishing it.
+  The repository variable `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT=true`
+  turns it on; without it a release ships the trimmed LLVM only.
 - RL-8 on blindvac: its UHD 620 and 8 GB are the low end, and a fresh
   Windows user there checks the Build Tools install path.
 

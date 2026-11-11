@@ -13,7 +13,7 @@ writes beside it: {"kind": "llvm" | "kit", "platform": "windows-x64",
 
     python tools/apply-prebuilt-pins.py --config payload/config/release-toolchain.json \
         --assets .artifacts/prebuilt \
-        --base-url https://github.com/<owner>/lavender-shift/releases/download/v0.1.0
+        --base-url https://github.com/<owner>/lavender-shift/releases/download/v0.0.1
 """
 from __future__ import annotations
 

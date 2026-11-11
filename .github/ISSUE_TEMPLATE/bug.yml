@@ -1,0 +1,42 @@
+name: Problem report
+description: Report a launcher, setup, build, crash, graphics, audio or gameplay problem
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: Safety check
+      options:
+        - label: I have not attached game files, generated source, executables or crash dumps.
+          required: true
+        - label: I used my own dump of the supported USA disc and title update v2.
+          required: true
+  - type: dropdown
+    attributes:
+      label: Area
+      options: [Launcher, Tool installation, Extraction, Build, Startup, Graphics, Audio, Input, Gameplay, Save data]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Exact steps, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Version
+      description: The launcher version shown in its footer, or the commit if built from source.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: System
+      description: Windows version, CPU, GPU, GPU driver and free disk space.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Relevant log lines
+      description: For a setup failure, attach source\.local\logs\setup-error.json and paste the first compiler or CMake error from the log it names. Remove personal paths.
+      render: text
