@@ -110,6 +110,9 @@ Lavender Shift $version
 Your saves are in the user folder beside the launcher. To update, extract
 a newer release into the same folder and run setup again.
 
+Needs Windows 10 2004 or newer, a CPU with AVX2 (Intel Haswell, AMD Zen
+or newer) and a Vulkan GPU.
+
 No game files are included. Lavender Shift only runs from a copy of the
 game you own.
 

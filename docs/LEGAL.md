@@ -23,6 +23,22 @@ Do not commit or redistribute:
 `config/repository-policy.json`) and the audit in
 `tools/package-release.ps1` refuse the file types these come in.
 
+## Prebuilt archives
+
+A release attaches a trimmed LLVM and the ShiftGlue kit
+(`tools/repack-toolchain.py`, `tools/build-shiftglue-kit.ps1`). Neither is
+game-derived: the kit is ShiftGlue's generator, runtime and graphics
+backend, built from its pinned source with no game input. No vendor DLL is
+in it; AMD's and NVIDIA's runtimes are fetched at the game's configure.
+`rexruntime.dll` does link NVIDIA's static NGX loader, so publishing the
+kit is a binary release of that loader: the release workflow holds the kit
+back until the maintainer sets `LAVENDER_SHIFT_PUBLISH_WINDOWS_KIT` after
+confirming NVIDIA's terms cover it, as Pinyon Shift did for its kit.
+
+The Microsoft C++ libraries and Windows SDK are never in a release. Setup
+fetches them from Microsoft with xwin only after the player accepts
+Microsoft's license in the launcher.
+
 ## Records of our own analysis
 
 `docs/findings` records what was learned about the game by observation:

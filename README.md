@@ -11,15 +11,19 @@ this repository.
 
 ## Playing (Windows)
 
-You need Windows 10 2004 or newer (x64), a Vulkan GPU, 30 GB free, your
-own Forza Horizon 2 USA disc image and the title update v2 package.
+You need Windows 10 2004 or newer (x64), a CPU with AVX2 (Intel Haswell,
+AMD Zen or newer), a Vulkan GPU, 30 GB free, your own Forza Horizon 2 USA
+disc image and the title update v2 package.
 
 1. Extract the release ZIP into a folder with a short path, for example
    `C:\Games\LavenderShift`.
 2. Start `LavenderShiftLauncher.exe`, choose the disc image and the title
    update, and press **Set up**. The launcher downloads the pinned build
-   tools (and the Visual Studio Build Tools if the PC has none), extracts
-   your files and builds the game on your PC. The first setup takes 15
+   tools and the prebuilt recompiler and runtime, extracts your files,
+   translates the game's code and compiles it on your PC. Tick the
+   Microsoft license box to let setup fetch Microsoft's C++ libraries
+   directly (no administrator prompt); unticked, it installs the Visual
+   Studio Build Tools if the PC has none. The first setup takes 15
    minutes to an hour, depending on the PC; it continues where it stopped
    if interrupted.
 3. Press **Play**. Settings are in the game's F6 menu.
