@@ -1,0 +1,165 @@
+[CmdletBinding()]
+param([switch]$JsonEvents)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
+
+. (Join-Path $PSScriptRoot 'release-common.ps1')
+$root = Get-LavenderRepoRoot
+$config = Get-LavenderReleaseToolchain
+# Setup skips Git when a prebuilt ShiftGlue kit is pinned; this is the
+# fallback when that kit could not be installed.
+Install-LavenderGit
+$git = Get-LavenderGit
+$sdkRoot = Resolve-LavenderRexGlueRoot
+$isRepositoryCheckout = Test-Path -LiteralPath (Join-Path $root '.git')
+$logs = Resolve-LavenderLocalPath -RelativePath '.local/logs'
+$gitLog = Join-Path $logs 'rexglue-prepare.log'
+if (Test-Path -LiteralPath $gitLog) { Remove-Item -LiteralPath $gitLog -Force }
+
+function Invoke-LavenderGitWithRetry {
+    param(
+        [Parameter(Mandatory)] [string]$Activity,
+        [Parameter(Mandatory)] [string[]]$Arguments,
+        [scriptblock]$BeforeAttempt
+    )
+
+    $maximumAttempts = 3
+    $code = 0
+    for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+        if ($null -ne $BeforeAttempt) { & $BeforeAttempt $attempt }
+        # Keep Git's stderr (where it reports errors) in the output and in
+        # .local/logs/rexglue-prepare.log for the failure report.
+        Invoke-LavenderLoggedCommand -FilePath $git -Arguments $Arguments -LogPath $gitLog -Append
+        $code = $LASTEXITCODE
+        if ($code -eq 0) { return }
+        if ($attempt -lt $maximumAttempts) {
+            Write-LavenderEvent tools 35 `
+                "$Activity failed (attempt $attempt of $maximumAttempts); retrying." `
+                -JsonEvents:$JsonEvents
+            Start-Sleep -Seconds (2 * $attempt)
+        }
+    }
+    throw (New-LavenderCommandFailure -FailureMessage "$Activity failed after $maximumAttempts attempts." `
+        -Step $Activity -LogPath $gitLog -ExitCode $code `
+        -CommandLine (Format-LavenderCommandLine -FilePath $git -Arguments $Arguments))
+}
+
+function Repair-MaterializedLinks {
+    param([Parameter(Mandatory)] [string]$RepositoryRoot)
+    $mspackRoot = Join-Path $RepositoryRoot 'thirdparty/libmspack'
+    if (-not (Test-Path -LiteralPath (Join-Path $mspackRoot '.git'))) { return }
+    # A failed git here (dubious ownership of the nested repository in 0.5.1,
+    # #639) listed no links, so the text placeholders were compiled as C.
+    $entries = @(& $git -C $mspackRoot ls-files -s | Where-Object { $_ -match '^120000 ' })
+    if ($LASTEXITCODE -ne 0) { throw "Unable to list the libmspack links in $mspackRoot." }
+    foreach ($entry in $entries) {
+        if ($entry -notmatch '^120000 [0-9a-f]+ 0\t(.+)$') {
+            throw "Unable to parse a libmspack symlink entry: $entry"
+        }
+        $relative = $Matches[1]
+        $targetText = ((& $git -C $mspackRoot show "HEAD:$relative") -join "`n").Trim()
+        $linkFile = [IO.Path]::GetFullPath((Join-Path $mspackRoot $relative))
+        $targetFile = [IO.Path]::GetFullPath((Join-Path (Split-Path $linkFile -Parent) $targetText))
+        $prefix = [IO.Path]::GetFullPath($mspackRoot).TrimEnd('\', '/') +
+            [IO.Path]::DirectorySeparatorChar
+        if (-not $targetFile.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
+            -not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+            throw "Invalid libmspack link target for '$relative'."
+        }
+        $item = Get-Item -LiteralPath $linkFile
+        if ($null -eq $item.LinkType) {
+            $current = (Get-FileHash -LiteralPath $linkFile -Algorithm SHA256).Hash
+            $target = (Get-FileHash -LiteralPath $targetFile -Algorithm SHA256).Hash
+            if ($current -ne $target) {
+                Copy-Item -LiteralPath $targetFile -Destination $linkFile -Force
+            }
+        }
+    }
+}
+
+if ($isRepositoryCheckout) {
+    if (-not (Test-Path -LiteralPath (Join-Path $sdkRoot '.git'))) {
+        Write-LavenderEvent tools 34 'Initializing the pinned ShiftGlue submodule.' -JsonEvents:$JsonEvents
+        Invoke-LavenderGitWithRetry -Activity 'Initializing ShiftGlue' -Arguments @(
+            '-c', 'http.version=HTTP/1.1', '-C', $root, 'submodule', 'update',
+            '--init', '--recursive', '--jobs', '8', '--', $config.rexglue.submodule_path
+        )
+    }
+    else {
+        & $git -C $sdkRoot submodule sync --recursive
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to synchronize ShiftGlue dependency URLs.' }
+        Invoke-LavenderGitWithRetry -Activity 'Downloading ShiftGlue dependencies' -Arguments @(
+            '-c', 'http.version=HTTP/1.1', '-C', $sdkRoot,
+            'submodule', 'update', '--init', '--recursive', '--jobs', '8'
+        )
+    }
+}
+else {
+    $replaceCheckout = $false
+    $head = @()
+    if (Test-Path -LiteralPath $sdkRoot) {
+        if (Test-Path -LiteralPath (Join-Path $sdkRoot '.git')) {
+            $head = @(& $git -C $sdkRoot rev-parse HEAD 2>$null | Select-Object -First 1)
+        }
+        $dirty = @(& $git -C $sdkRoot status --porcelain --ignore-submodules=dirty 2>$null).Count -ne 0
+        if ($dirty) {
+            throw "The managed ShiftGlue checkout has local changes: $sdkRoot"
+        }
+        # Keep a valid checkout's dependency sources and build trees across pin
+        # changes; Git and CMake invalidate only the inputs that changed.
+        $replaceCheckout = $head.Count -ne 1 -or $head[0] -notmatch '^[0-9a-fA-F]{40}$'
+    }
+    if ($replaceCheckout) {
+        $resolved = [IO.Path]::GetFullPath($sdkRoot)
+        $allowed = [IO.Path]::GetFullPath((Join-Path $root '.local'))
+        if (-not $resolved.StartsWith($allowed.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to replace ShiftGlue outside $allowed"
+        }
+        Remove-Item -LiteralPath $resolved -Recurse -Force
+    }
+    if (-not (Test-Path -LiteralPath $sdkRoot)) {
+        Write-LavenderEvent tools 34 'Downloading the pinned ShiftGlue source.' -JsonEvents:$JsonEvents
+        Invoke-LavenderGitWithRetry -Activity 'Downloading ShiftGlue' -Arguments @(
+            '-c', 'core.symlinks=false', '-c', 'http.version=HTTP/1.1',
+            'clone', '--no-checkout', '--no-tags', $config.rexglue.repository, $sdkRoot
+        ) -BeforeAttempt {
+            param($attempt)
+            if ($attempt -gt 1 -and (Test-Path -LiteralPath $sdkRoot)) {
+                Remove-Item -LiteralPath $sdkRoot -Recurse -Force
+            }
+        }
+    }
+    if ($head.Count -ne 1 -or $head[0] -ne $config.rexglue.revision) {
+        Invoke-LavenderGitWithRetry -Activity 'Fetching the pinned ShiftGlue revision' -Arguments @(
+            '-c', 'http.version=HTTP/1.1', '-C', $sdkRoot, 'fetch', '--depth', '1',
+            'origin', $config.rexglue.revision
+        )
+        & $git -C $sdkRoot checkout --detach $config.rexglue.revision
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to check out the pinned ShiftGlue revision.' }
+    }
+    & $git -C $sdkRoot submodule sync --recursive
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to synchronize ShiftGlue dependency URLs.' }
+    # --force checks every dependency out again even when its commit already
+    # matches: an interrupted first setup (or a scanner) left o1heap's files
+    # missing, update skipped it, and CMake could not find o1heap.c (#580).
+    # Nothing here is edited by hand; local changes were refused above.
+    Invoke-LavenderGitWithRetry -Activity 'Downloading ShiftGlue dependencies' -Arguments @(
+        '-c', 'http.version=HTTP/1.1', '-C', $sdkRoot,
+        'submodule', 'update', '--init', '--recursive', '--force', '--jobs', '8'
+    )
+}
+
+$head = @(& $git -C $sdkRoot rev-parse HEAD 2>$null | Select-Object -First 1)
+if ($head.Count -ne 1 -or $head[0] -notmatch '^[0-9a-fA-F]{40}$') {
+    throw 'Unable to identify the prepared ShiftGlue revision.'
+}
+if ($head[0] -ne $config.rexglue.revision) {
+    Write-LavenderEvent tools 38 "Using developer ShiftGlue revision $($head[0])." -JsonEvents:$JsonEvents
+}
+Repair-MaterializedLinks -RepositoryRoot $sdkRoot
+Write-LavenderEvent tools 39 'ShiftGlue source is ready.' -JsonEvents:$JsonEvents

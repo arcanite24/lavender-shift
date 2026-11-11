@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "platform": "windows-x64",
+  "minimum_windows_build": 19041,
+  "disk_space_gb": {
+    "first_build": 30,
+    "rebuild": 8,
+    "system_drive": 3,
+    "build_tools": 8
+  },
+  "visual_studio": {
+    "minimum_version": "17.1",
+    "bootstrap_url": "https://aka.ms/vs/17/release/vs_BuildTools.exe",
+    "bootstrap_signer": "Microsoft Corporation",
+    "workload": "Microsoft.VisualStudio.Workload.VCTools",
+    "required_component": "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "repair_components": [
+      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+      "Microsoft.VisualStudio.Component.Windows11SDK.22621"
+    ]
+  },
+  "cmake": {
+    "version": "3.31.10",
+    "url": "https://github.com/Kitware/CMake/releases/download/v3.31.10/cmake-3.31.10-windows-x86_64.zip",
+    "sha256": "13D1A463D7130DF5339BAEDD63D8AE990AAF385062B2F42F372796143AE94086",
+    "install_path": ".local/toolchain/cmake-3.31.10-windows-x86_64",
+    "executable": "bin/cmake.exe"
+  },
+  "ninja": {
+    "version": "1.13.2",
+    "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip",
+    "sha256": "07FC8261B42B20E71D1720B39068C2E14FFCEE6396B76FB7A795FB460B78DC65",
+    "install_path": ".local/toolchain/ninja-1.13.2",
+    "executable": "ninja.exe"
+  },
+  "git": {
+    "version": "2.55.0.5",
+    "url": "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.5/MinGit-2.55.0.5-64-bit.zip",
+    "sha256": "56D7B226B7693196CFC71FEF26568F536C4A021AB6C37FF2DB4287BED908E96E",
+    "install_path": ".local/toolchain/mingit-2.55.0.5",
+    "executable": "cmd/git.exe"
+  },
+  "xz": {
+    "version": "5.8.3",
+    "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3-windows.zip",
+    "sha256": "8D0048EE51177B11EF1613959C2A268C951F4E7F6FB3706E681E00E34BB6D5E3",
+    "install_path": ".local/toolchain/xz-5.8.3",
+    "executable": "bin_x86-64/xz.exe"
+  },
+  "llvm": {
+    "version": "20.1.8",
+    "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/clang%2Bllvm-20.1.8-x86_64-pc-windows-msvc.tar.xz",
+    "sha256": "F229769F11D6A6EDC8ADA599C0CDA964B7DEE6AB1A08C6CF9DD7F513E85B107F",
+    "install_path": ".local/toolchain/llvm-20.1.8",
+    "executable": "bin/clang-cl.exe"
+  },
+  "python": {
+    "version": "3.13.15",
+    "url": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip",
+    "sha256": "D1F04D990AEE1253D8569E8E5104E30FA9F5FA830899F14843448872D936A2CF",
+    "install_path": ".local/toolchain/python-3.13.15",
+    "executable": "python.exe"
+  },
+  "rexglue": {
+    "repository": "https://github.com/arcanite24/shiftglue-sdk",
+    "revision": "1b009e88e6edca718f21a5c455949eae890efc92",
+    "submodule_path": "thirdparty/shiftglue-sdk",
+    "fallback_path": ".local/rexglue"
+  }
+}
