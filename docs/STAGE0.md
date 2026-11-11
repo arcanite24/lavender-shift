@@ -313,12 +313,15 @@ toward the park:
 | `--readback_resolve=full` | unchanged |
 | `--occlusion_query_enable=false` | unchanged |
 
-The emulator delivers what the game asks for, so the coarse texture is
-the game's choice. Most likely it is a distance-LOD model and its atlas
-drawn up close. It has not been compared with real hardware yet. The
-next step is a frame dump and draw bisection to find the building's draw,
-model and texture. Records: `docs/findings/systems.toml`, "open-world
-streaming archive" and "blurry buildings: what it is not".
+The emulator delivers what the game asks for. Frame dumps replayed with
+draw bisection showed why: the town's buildings use one shader that
+samples a 128 x 128 DXT1 atlas and the light buffer, with no detail map.
+A building 20-30 m away and one across the park use the same shader and
+atlas size; the far one only looks worse because its few texels cover
+many pixels, and close up a window is a few texels wide. That is the
+game's content, not a lost streaming upgrade. It has not been compared
+with real hardware. Records: `docs/findings/systems.toml`, "open-world
+streaming archive" and "town buildings: 128-pixel atlases".
 
 ## Next
 
