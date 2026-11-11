@@ -207,7 +207,7 @@
                             <TextBlock Margin="0,18,0,0" FontSize="12.5" Foreground="{StaticResource MutedBrush}"
                                        TextTrimming="CharacterEllipsis">
                                 <Run Text="Builds in "/><Run x:Name="BuildLocationRun" Foreground="{StaticResource FogBrush}"/><Run
-                                    x:Name="BuildLocationNoteRun" Text=" · needs 30 GB free"/>
+                                    x:Name="BuildLocationNoteRun" Text=" · needs 20 GB free"/>
                             </TextBlock>
                         </StackPanel>
                     </Grid>

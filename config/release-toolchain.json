@@ -3,7 +3,7 @@
   "platform": "windows-x64",
   "minimum_windows_build": 19041,
   "disk_space_gb": {
-    "first_build": 30,
+    "first_build": 20,
     "rebuild": 8,
     "system_drive": 3,
     "build_tools": 8

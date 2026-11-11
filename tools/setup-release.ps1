@@ -85,7 +85,10 @@ try {
         throw 'Close Lavender Shift before setup. Windows locks the game files while it runs.'
     }
     $firstBuild = -not (Test-Path -LiteralPath $statePath -PathType Leaf)
-    $buildToolsMissing = [string]::IsNullOrWhiteSpace((Get-LavenderVisualStudioRoot -AllowMissing))
+    # The fetched Microsoft libraries (under a gigabyte, in the install
+    # folder) replace the Build Tools when the player accepted the license.
+    $buildToolsMissing = -not (Test-LavenderUseMsvcSysroot) -and
+        [string]::IsNullOrWhiteSpace((Get-LavenderVisualStudioRoot -AllowMissing))
     Assert-LavenderFreeSpace -Root $root -FirstBuild:$firstBuild -BuildToolsMissing:$buildToolsMissing
 
     Write-LavenderEvent tools 5 'Preparing the build tools. Nothing from your game is uploaded.' -JsonEvents:$JsonEvents

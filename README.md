@@ -12,7 +12,7 @@ this repository.
 ## Playing (Windows)
 
 You need Windows 10 2004 or newer (x64), a CPU with AVX2 (Intel Haswell,
-AMD Zen or newer), a Vulkan GPU, 30 GB free, your own Forza Horizon 2 USA
+AMD Zen or newer), a Vulkan GPU, 20 GB free, your own Forza Horizon 2 USA
 disc image and the title update v2 package.
 
 1. Extract the release ZIP into a folder with a short path, for example

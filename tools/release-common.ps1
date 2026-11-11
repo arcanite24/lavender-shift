@@ -983,8 +983,8 @@ function Assert-LavenderFreeSpace {
         # Only the Build Tools and the compilers' scratch files go to the Windows
         # drive; everything else follows the install folder (#725).
         $where = if ($install -eq $system) {
-            "Lavender Shift is installing to $Root, on the Windows drive. Choose Change next to Installs to in the launcher " +
-            "to install on a drive with $buildNeed GB free; the Windows drive then needs only $systemNeed GB."
+            "Lavender Shift is installing to $Root, on the Windows drive. Extract the release on a drive with " +
+            "$buildNeed GB free instead; the Windows drive then needs only $systemNeed GB."
         } else {
             "The install drive ($install) holds the build; the Windows drive ($system) holds the build tools and temporary files."
         }

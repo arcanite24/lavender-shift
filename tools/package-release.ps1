@@ -100,7 +100,7 @@ Copy-Item -LiteralPath $payload -Destination $stage
 $readme = @"
 Lavender Shift $version
 
-1. Extract this whole ZIP into a folder with 30 GB free and a short path,
+1. Extract this whole ZIP into a folder with 20 GB free and a short path,
    for example C:\Games\LavenderShift.
 2. Start LavenderShiftLauncher.exe.
 3. Choose your Forza Horizon 2 USA disc image (.iso) and title update v2,

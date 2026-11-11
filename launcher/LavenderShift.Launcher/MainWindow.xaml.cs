@@ -76,7 +76,7 @@ public partial class MainWindow : Window
         }
         BuildLocationRun.Text = layout.SourceRoot;
         if (layout.InstallRoot.Length > 90)
-            BuildLocationNoteRun.Text = " · needs 30 GB free; a shorter folder such as C:\\Games\\LavenderShift avoids path-length build errors";
+            BuildLocationNoteRun.Text = " · needs 20 GB free; a shorter folder such as C:\\Games\\LavenderShift avoids path-length build errors";
         SetMode(GameIsRunning() ? Mode.Playing : layout.IsReady() ? Mode.Ready : Mode.NeedsSetup);
         if (mode == Mode.NeedsSetup)
         {
