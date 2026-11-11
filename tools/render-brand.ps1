@@ -104,6 +104,35 @@ $foreground = Join-Path $root 'android/res/drawable-xxxhdpi/ic_launcher_foregrou
 $stream = [IO.File]::Create($foreground)
 try { $encoder.Save($stream) } finally { $stream.Dispose() }
 
+# The README banner (.github/lavender-shift-banner.png): the mark and the
+# name in the launcher's colours and font, at 2x for high-DPI screens.
+$banner = Join-Path $root '.github/lavender-shift-banner.png'
+$width = 1600; $height = 440
+$visual = New-Object Windows.Media.DrawingVisual
+$context = $visual.RenderOpen()
+$brushOf = { param($c) New-Object Windows.Media.SolidColorBrush ([Windows.Media.ColorConverter]::ConvertFromString($c)) }
+$context.DrawRoundedRectangle((& $brushOf '#15111B'), $null, (New-Object Windows.Rect 0, 0, $width, $height), 36, 36)
+$scale = 300 / 420
+$context.PushTransform((New-Object Windows.Media.TranslateTransform 150, 70))
+$context.PushTransform((New-Object Windows.Media.ScaleTransform $scale, $scale))
+$context.DrawGeometry((& $brushOf '#C9B3F5'), $null, $geometry)
+$context.Pop(); $context.Pop()
+$culture = [Globalization.CultureInfo]::InvariantCulture
+$title = New-Object Windows.Media.FormattedText 'Lavender Shift', $culture, ([Windows.FlowDirection]::LeftToRight),
+    (New-Object Windows.Media.Typeface 'Bahnschrift SemiBold'), 128, (& $brushOf '#F2EEF6'), 1.0
+$tagline = New-Object Windows.Media.FormattedText 'Forza Horizon 2, running natively on PC and Android', $culture,
+    ([Windows.FlowDirection]::LeftToRight), (New-Object Windows.Media.Typeface 'Bahnschrift'), 44, (& $brushOf '#A59AB3'), 1.0
+$context.DrawText($title, (New-Object Windows.Point 470, 120))
+$context.DrawText($tagline, (New-Object Windows.Point 476, 272))
+$context.Close()
+$bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap $width, $height, 96, 96, ([Windows.Media.PixelFormats]::Pbgra32)
+$bitmap.Render($visual)
+$encoder = New-Object Windows.Media.Imaging.PngBitmapEncoder
+$encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+[void](New-Item -ItemType Directory -Force -Path (Split-Path -Parent $banner))
+$stream = [IO.File]::Create($banner)
+try { $encoder.Save($stream) } finally { $stream.Dispose() }
+
 if ($PreviewPath) {
     $previewDir = Split-Path -Parent $PreviewPath
     $name = [IO.Path]::GetFileNameWithoutExtension($PreviewPath)
