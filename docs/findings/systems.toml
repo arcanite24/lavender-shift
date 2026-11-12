@@ -182,6 +182,15 @@ source = """src/guest_native/fmod_dsp.cpp; docs/PINYON_PARITY.md LP-4.5"""
 
 [[finding]]
 group = """Audio"""
+name = """FMOD mixer packs a register into itself (vpkd3d128)"""
+v2 = """57 sites: sub_83097880 (39), sub_83096A68 (11), sub_83095900 (2), sub_83095F88 (2), sub_83095800, sub_83098050, sub_830A1818 (1 each)"""
+what = """Every site is a FLOAT16_4 pack with vD equal to vB (v63 into v63), which ShiftGlue's builder translated lane by lane while still reading vB, so later lanes read halfwords an earlier lane had already packed. ShiftGlue now reads a copy when the registers alias (SDK 68bc4da0). The functions sit beside the FMOD units above, and fh2-recompiled, which found the bug, places them in FMOD's mixer. The audible effect of the old code was not measured."""
+how = """Codegen diff before and after the builder fix (exactly these 57 sites change); fh2-recompiled's report for the mixer."""
+confidence = """probable"""
+source = """thirdparty/shiftglue-sdk src/codegen/builders/vector.cpp (build_vpkd3d128)"""
+
+[[finding]]
+group = """Audio"""
 name = """voice-chat (XHV2) tick"""
 v2 = """sub_8246D418"""
 fh1_v4 = """sub_8248D438"""
