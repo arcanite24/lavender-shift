@@ -29,6 +29,7 @@
 #include "ui/music.h"
 #include "diagnostics.h"
 #include "frame_rate.h"
+#include "trainer.h"
 
 namespace lavender_shift::ui {
 namespace {
@@ -618,7 +619,21 @@ std::unique_ptr<MenuScreen> SettingsPages::Cheats() {
   std::vector<MenuRow> rows;
   rows.push_back(Toggle("ANY CAR IN ANY EVENT", "lavender_cheat_any_car_events"));
   rows.push_back(Toggle("NO AI CATCH-UP", "lavender_cheat_no_catch_up"));
-  auto note = [] { return std::string("CHANGES APPLY FROM THE NEXT EVENT"); };
+  // Credits change at once, through the title's own setter (LP-2.12).
+  for (const auto& [label, amount] : {std::pair{"ADD 10,000 CR", int64_t(10'000)},
+                                      std::pair{"ADD 100,000 CR", int64_t(100'000)},
+                                      std::pair{"ADD 1,000,000 CR", int64_t(1'000'000)}}) {
+    MenuRow row;
+    row.label = label;
+    row.activate = [amount] { trainer::AddCredits(amount); };
+    rows.push_back(std::move(row));
+  }
+  auto note = [] {
+    const auto credits = trainer::Credits();
+    std::string text = "THE CAR AND CATCH-UP CHANGES APPLY FROM THE NEXT EVENT";
+    if (credits) text += "   CREDITS: " + std::to_string(*credits);
+    return text;
+  };
   return std::make_unique<MenuScreen>("CHEATS", std::move(rows), std::move(note));
 }
 

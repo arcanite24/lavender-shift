@@ -24,6 +24,7 @@
 #include "render_settings.h"
 #include "simulation_hooks.h"
 #include "stall_dump.h"
+#include "trainer.h"
 #include "wide_view.h"
 #include "ui/music.h"
 
@@ -45,6 +46,7 @@ void LavenderObserveSimulationDelta(PPCRegister& f31) {
   // A world exists from free roam on; the title has none (mode -1).
   lavender_shift::music::SetInGame(lavender_shift::ai_driver::GameMode() != 0xFFFFFFFFu);
   lavender_shift::audio_mix::Update();
+  lavender_shift::trainer::Update();
   lavender_shift::graphics::LogHookCalls();
   lavender_shift::stall::NoteFrame();
 }

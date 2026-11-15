@@ -44,6 +44,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/dev_options.cpp
     src/ai_driver.cpp
     src/audio_mix.cpp
+    src/trainer.cpp
     src/camera_editor.cpp
     src/cvar_cycle.cpp
     src/movie_hooks.cpp
