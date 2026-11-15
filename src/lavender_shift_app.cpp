@@ -27,6 +27,7 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "config/default_keys.h"
+#include "platform/display_hdr.h"
 #include "graphics_hooks.h"
 #include "movie_hooks.h"
 #include "wide_view.h"
@@ -47,6 +48,7 @@ LavenderShiftApp::~LavenderShiftApp() = default;
 
 REXCVAR_DECLARE(std::string, gpu_backend);
 REXCVAR_DECLARE(bool, fullscreen);
+REXCVAR_DECLARE(int32_t, monitor);
 
 REXCVAR_DEFINE_INT32(lavender_master_volume, 100, "Audio",
                      "Master volume, 0 to 100, applied to the output mix")
@@ -84,14 +86,43 @@ REXCVAR_DEFINE_STRING(lavender_device_name, "", "Lavender Shift",
                       "This device's name as other devices show it in SAVE SYNC; empty uses "
                       "the computer's name")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+REXCVAR_DEFINE_BOOL(lavender_windows_hdr, false, "Display",
+                    "Windows: turn HDR on for the game's display while the game runs, and "
+                    "back off when it closes (a display already in HDR is left on)")
+    .lifecycle(rex::cvar::Lifecycle::kHotReload);
 REXCVAR_DEFINE_BOOL(lavender_hor_plus, false, "Display",
                     "Ultrawide: widen the horizontal field of view to the window's aspect "
                     "(Hor+), shown stretched from the 16:9 image; the HUD keeps its shape")
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
 
+namespace {
+// WINDOWS HDR (Pinyon Shift's switch): HDR on for the display showing the
+// window, or before the window exists for the primary display, which always
+// holds the desktop's origin.
+void TurnOnWindowsHdr(void* native_window) {
+  const auto result = native_window ? lavender_shift::platform::TurnOnDisplayHdr(native_window)
+                                    : lavender_shift::platform::TurnOnDisplayHdrAt(0, 0);
+  lavender_shift::diagnostics::RecordEvent(
+      "display.windows_hdr", {{"result", lavender_shift::platform::DisplayHdrResultName(result)}});
+}
+}  // namespace
+
 // Stage 0 renders through ShiftGlue's Xenos (PM4) plugin, rexgpu-fh1, unless
 // --gpu_plugin names another one.
 void LavenderShiftApp::OnPreSetup(rex::RuntimeConfig& config) {
+  // WINDOWS HDR: before the swapchain is made, so the presenter is offered
+  // scRGB. A display a crashed run left in HDR is turned back off first. The
+  // list lives in the player's own folder, also while a modded profile plays.
+  lavender_shift::platform::SetDisplayHdrRestoreFile(photos_dir_.parent_path() / "cache" /
+                                                     "windows_hdr_restore.txt");
+  // On another MONITOR it waits for the window (OnPostSetup).
+  if (REXCVAR_GET(lavender_windows_hdr)) {
+    if (REXCVAR_GET(monitor) <= 0) TurnOnWindowsHdr(nullptr);
+  } else if (const int restored = lavender_shift::platform::RestoreDisplayHdr()) {
+    lavender_shift::diagnostics::RecordEvent(
+        "display.windows_hdr",
+        {{"result", "restored_after_crash"}, {"displays", std::to_string(restored)}});
+  }
   if (config.gpu_plugin.empty()) {
     config.gpu_plugin = "fh1";
   }
@@ -317,6 +348,28 @@ void LavenderShiftApp::OnPostSetup() {
   });
   // The Vulkan presenter picks its present mode from vsync when it creates
   // the swapchain, which a surface refresh does.
+  // WINDOWS HDR on another MONITOR than the primary: through the window, then
+  // the swapchain is made again so the presenter is offered scRGB.
+  if (REXCVAR_GET(lavender_windows_hdr) && REXCVAR_GET(monitor) > 0 && window()) {
+    TurnOnWindowsHdr(window()->GetNativeWindowHandle());
+    RefreshSurface();
+  }
+  // WINDOWS HDR switched in the menu applies at once, the swapchain made again
+  // for the display's new mode.
+  rex::cvar::RegisterChangeCallback("lavender_windows_hdr",
+                                    [this](std::string_view, std::string_view value) {
+                                      if (!window()) return;
+                                      const bool on = value == "true";
+                                      window()->app_context().CallInUIThreadDeferred([this, on] {
+                                        if (on) {
+                                          TurnOnWindowsHdr(
+                                              window() ? window()->GetNativeWindowHandle() : nullptr);
+                                        } else {
+                                          lavender_shift::platform::RestoreDisplayHdr();
+                                        }
+                                        RefreshSurface();
+                                      });
+                                    });
   rex::cvar::RegisterChangeCallback("vsync", [this](std::string_view, std::string_view) {
     if (window()) {
       window()->app_context().CallInUIThreadDeferred([this] { RefreshSurface(); });
@@ -417,6 +470,7 @@ void LavenderShiftApp::OnShutdown() {
     resize_listener_added_ = false;
   }
   rex::cvar::UnregisterChangeCallbacks("vsync");
+  rex::cvar::UnregisterChangeCallbacks("lavender_windows_hdr");
   // Before the presenter and drawer it uses are torn down.
   rex::kernel::xam::SetXamUiProvider(nullptr);
   xam_dialogs_.reset();
@@ -429,6 +483,7 @@ void LavenderShiftApp::OnShutdown() {
     save_sync_->StopWatching();
     save_sync_->Export(user_root_);
   }
+  lavender_shift::platform::RestoreDisplayHdr();
 }
 
 void LavenderShiftApp::PostToast(std::string heading, std::string title, std::string detail) {

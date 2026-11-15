@@ -342,6 +342,14 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
                                         {"MEDIUM", {{"present_fsr_sharpness_reduction", "0.5"}}},
                                         {"HIGH", {{"present_fsr_sharpness_reduction", "0.2"}}},
                                         {"MAX", {{"present_fsr_sharpness_reduction", "0.0"}}}}));
+#if defined(_WIN32)
+  // Windows HDR on for the game's display while it runs and back off when it
+  // closes; ON also turns the game's HDR output on (a display already in HDR
+  // stays on).
+  rows.push_back(Setting("WINDOWS HDR", {{"OFF", {{"lavender_windows_hdr", "false"}}},
+                                         {"ON", {{"lavender_windows_hdr", "true"},
+                                                 {"present_hdr", "true"}}}}));
+#endif
   const rex::ui::vulkan::HdrOutputState hdr = rex::ui::vulkan::GetHdrOutputState();
   if (hdr.offered || hdr.active || SameValue(Live("present_hdr"), "true")) {
     rows.push_back(Toggle("HDR", "present_hdr"));
