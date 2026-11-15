@@ -219,3 +219,24 @@ how = """Frame dumps (fh1_frame_dump_frame) at 1x in the town at night, replayed
 confidence = """probable"""
 note = """Not compared with real hardware. A larger base level streamed later (the _B.bix parts) would change the fetch size; none was seen in these frames."""
 source = """docs/STAGE0.md "Blurry buildings""""
+
+[[finding]]
+group = """Cameras"""
+name = """camera controllers"""
+v2 = """count 0x82496CF0(world), controller 0x82496D20(world, i), view switch 0x829C5018(controller, view); controller +8 view, +24 one camera per view"""
+fh1_v4 = """0x824B68E0, 0x824B6910, 0x82908AC0; +8, +24"""
+what = """The world holds the camera controllers (one in free roam). A controller keeps its current view at +8 and a table of camera pointers from +24, one per view (24 read). Views 0 and 1 are the two chase cameras (FollowLowCam and FollowHighCam)."""
+how = """Mapper (context, context, exact); lavender_camera_probe called both functions on the simulation thread in free roam: one controller, view 0, and chase cameras whose +192 blocks hold CameraSettings.ini's FollowLowCam and FollowHighCam values."""
+confidence = """confirmed"""
+source = """src/camera_editor.cpp"""
+
+[[finding]]
+group = """Cameras"""
+name = """chase-camera tuning block and placement"""
+v2 = """camera +192 -> 16-float block (FollowLowCam 0x833905A8, FollowHighCam 0x833905E8 in this session); camera +16 car, +268 height, +276 radius, +280 target height"""
+fh1_v4 = """14-float block; same camera offsets"""
+what = """FH2's block is 64 bytes, not FH1's 56: height 0, radius 4, target height 8, an unknown 0 at 12, minimum/maximum height above ground 16/20, near/far clip 24/28, FOV in degrees 32 (FH1: 28), yaw spring K/D 36/40, yaw damping scale 44, yaw max speed 48, height spring K 52, an unknown 10 at 56, height spring D 60. The camera's own height, radius and target (+268/+276/+280) start from the block and the car's values (the Lotus 2-Eleven's low cam: 0.334, -0.15, 0.234 against the block's 0.9, -0.15, 0.8). A camera that starts after the min/max height fields are raised takes the change into its own height and target, so the editor offsets +268 and leaves those fields alone. The far chase camera has no car and zero placement until first used."""
+how = """lavender_camera_probe logged the block and the camera's +256..+320 in free roam, matched against CameraSettings.ini from camera.zip. Edits checked in game: height +0.75, distance +2 and FOV x1.2 showed as 1.0844, 1.85 and 58.2 and moved the view; RESET CAMERA from the menu put back 0.3344, -0.15 and 48.5 and the stock view."""
+confidence = """confirmed"""
+note = """The two unknown fields and the stiffness fields' effect (the springs) were not checked by eye."""
+source = """src/camera_editor.cpp"""

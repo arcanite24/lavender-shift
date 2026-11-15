@@ -16,6 +16,7 @@
 #include <rex/thread.h>
 
 #include "ai_driver.h"
+#include "camera_editor.h"
 #include "dev_options.h"
 #include "graphics_hooks.h"
 #include "guest_memory.h"
@@ -38,6 +39,7 @@ void LavenderObserveSimulationDelta(PPCRegister& f31) {
   lavender_shift::dev_options::Update();
   lavender_shift::wide_view::Update();
   lavender_shift::ai_driver::Update();
+  lavender_shift::camera_editor::Update();
   lavender_shift::graphics::LogHookCalls();
   lavender_shift::stall::NoteFrame();
 }

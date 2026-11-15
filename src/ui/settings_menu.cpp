@@ -8,9 +8,11 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/logging.h>
@@ -133,6 +135,7 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
 
   std::unique_ptr<MenuScreen> Display();
   std::unique_ptr<MenuScreen> Hud();
+  std::unique_ptr<MenuScreen> Camera();
   std::unique_ptr<MenuScreen> HdrCalibration();
   std::unique_ptr<MenuScreen> Graphics();
   std::unique_ptr<MenuScreen> Audio();
@@ -302,6 +305,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     }
     rows.push_back(Setting("FIELD OF VIEW", std::move(fov)));
   }
+  rows.push_back(Page("CAMERA", &SettingsPages::Camera));
   rows.push_back(Page("HUD", &SettingsPages::Hud));
   // The one frame rate (src/frame_rate.cpp): the rate the game simulates
   // and renders at, which sets most of its CPU cost. 30 is the console's.
@@ -451,9 +455,6 @@ std::unique_ptr<MenuScreen> SettingsPages::HdrCalibration() {
   return screen;
 }
 
-
-// The output mix's gain and mute, both applied by the SDK's audio driver at
-// once (Pinyon Shift's AUDIO page; mixer levels need FH2's audio XML, LP-2.8).
 std::unique_ptr<MenuScreen> SettingsPages::Hud() {
   std::vector<MenuRow> rows;
   // The same switch as F2: the HUD's elements hide while it is off.
@@ -476,6 +477,50 @@ std::unique_ptr<MenuScreen> SettingsPages::Hud() {
   return std::make_unique<MenuScreen>("HUD", std::move(rows));
 }
 
+// The chase camera editor (src/camera_editor.cpp), Pinyon Shift's: offsets
+// and multipliers on the game's own chase-camera data, applied while driving.
+std::unique_ptr<MenuScreen> SettingsPages::Camera() {
+  std::vector<MenuRow> rows;
+  for (const auto& [label, key, first, last] :
+       {std::tuple{"CHASE HEIGHT", "lavender_chase_height", -2, 6},
+        std::tuple{"CHASE DISTANCE", "lavender_chase_distance", -4, 12}}) {
+    std::vector<Choice> choices;
+    for (int step = first; step <= last; ++step) {
+      choices.push_back({step == 0 ? std::string("DEFAULT") : fmt::format("{:+.2f} M", step * 0.25),
+                         {{key, fmt::format("{:.2f}", step * 0.25)}}});
+    }
+    rows.push_back(Setting(label, std::move(choices)));
+  }
+  for (const auto& [label, key, first, last, increment] :
+       {std::tuple{"CHASE FIELD OF VIEW", "lavender_chase_fov", 80, 130, 5},
+        std::tuple{"CHASE STIFFNESS", "lavender_chase_stiffness", 50, 200, 25}}) {
+    std::vector<Choice> choices;
+    for (int percent = first; percent <= last; percent += increment) {
+      choices.push_back({percent == 100 ? std::string("DEFAULT") : std::to_string(percent) + "%",
+                         {{key, fmt::format("{:.2f}", percent / 100.0)}}});
+    }
+    rows.push_back(Setting(label, std::move(choices)));
+  }
+  MenuRow reset;
+  reset.label = "RESET CAMERA";
+  reset.activate = [this] {
+    for (const auto& [key, value] : {std::pair{"lavender_chase_height", "0.0"},
+                                     std::pair{"lavender_chase_distance", "0.0"},
+                                     std::pair{"lavender_chase_fov", "1.0"},
+                                     std::pair{"lavender_chase_stiffness", "1.0"}}) {
+      config_.Set(key, value);
+      rex::cvar::SetFlagByName(key, value);
+    }
+    Save();
+  };
+  rows.push_back(std::move(reset));
+  return std::make_unique<MenuScreen>("CAMERA", std::move(rows), [] {
+    return std::string("CHANGES BOTH CHASE VIEWS WHILE YOU DRIVE");
+  });
+}
+
+// The output mix's gain and mute, both applied by the SDK's audio driver at
+// once (Pinyon Shift's AUDIO page; mixer levels need FH2's audio XML, LP-2.8).
 std::unique_ptr<MenuScreen> SettingsPages::Audio() {
   std::vector<MenuRow> rows;
   std::vector<Choice> volumes;
