@@ -52,6 +52,9 @@ REXCVAR_DEFINE_DOUBLE(lavender_chase_fov, 1.0, "Lavender Shift",
 REXCVAR_DEFINE_DOUBLE(lavender_chase_stiffness, 1.0, "Lavender Shift",
                       "Chase camera yaw and height spring stiffness multiplier")
     .range(0.5, 2.0);
+REXCVAR_DEFINE_INT32(lavender_drive_camera, 0, "Lavender Shift",
+                     "Driving view: 0 the game's own, 10 the wheel camera, 15 the car-relative "
+                     "replay camera");
 REXCVAR_DEFINE_BOOL(lavender_camera_probe, false, "Lavender Shift",
                     "Diagnostic: log the camera controllers and chase-camera tuning data");
 
@@ -61,6 +64,11 @@ constexpr uint32_t kGame = 0x83422224u;
 constexpr uint32_t kWorldOf = 0x8248F578u;
 constexpr uint32_t kCameraCount = 0x82496CF0u;
 constexpr uint32_t kCameraController = 0x82496D20u;
+constexpr uint32_t kSetView = 0x829C5018u;
+constexpr uint32_t kControllerView = 8;
+// Views a player chooses while driving; higher ones are photo mode, cut
+// scenes, the free camera and replay sequences.
+constexpr uint32_t kLastPlayerView = 4;
 
 constexpr uint32_t kControllerCameras = 24;
 constexpr uint32_t kCameraCar = 16;
@@ -212,6 +220,41 @@ void Edit(uint32_t world, const std::array<float, 4>& values) {
   }
 }
 
+// Holds a driving view the player chose on the CAMERA page, through the
+// title's own view switch. Only a view the editor set is switched back, so
+// the title's own use of those cameras (replay sequences) is left alone.
+void DriveView(uint32_t world, uint32_t wanted) {
+  using namespace lavender_shift::guest;
+  struct Forced {
+    uint32_t player = 0;  // the view before the editor switched it
+    uint32_t view = 0;    // the view the editor switched to
+  };
+  static std::map<uint32_t, Forced> forced;
+  const uint32_t count = Call(kCameraCount, world);
+  for (uint32_t i = 0; i < std::min(count, 4u); ++i) {
+    const uint32_t controller = Call(kCameraController, world, i);
+    if (!controller || !Readable(controller, kControllerCameras + 4 * 24)) continue;
+    const uint32_t active = LoadU32(controller + kControllerView);
+    const auto previous = forced.find(controller);
+    if (wanted && active <= kLastPlayerView) {
+      if (!LoadU32(controller + kControllerCameras + 4 * wanted)) continue;
+      forced[controller] = {active, wanted};
+      Call(kSetView, controller, wanted);
+      lavender_shift::diagnostics::RecordEvent(
+          "camera.editor.view", {{"view", std::to_string(wanted)}, {"was", std::to_string(active)}});
+    } else if (previous != forced.end() && active == previous->second.view && active != wanted) {
+      Call(kSetView, controller, wanted ? wanted : previous->second.player);
+      if (wanted) {
+        previous->second.view = wanted;
+      } else {
+        forced.erase(previous);
+      }
+      lavender_shift::diagnostics::RecordEvent("camera.editor.view",
+                                               {{"view", std::to_string(wanted)}});
+    }
+  }
+}
+
 }  // namespace
 
 namespace lavender_shift::camera_editor {
@@ -225,15 +268,21 @@ void Update() {
   const std::array<float, 4> values = {
       float(REXCVAR_GET(lavender_chase_height)), float(REXCVAR_GET(lavender_chase_distance)),
       float(REXCVAR_GET(lavender_chase_fov)), float(REXCVAR_GET(lavender_chase_stiffness))};
+  const int32_t view = REXCVAR_GET(lavender_drive_camera);
+  const uint32_t wanted = view == 10 || view == 15 ? uint32_t(view) : 0u;
   // Untouched until the player first changes a value.
-  static bool used = false;
-  if (!used && values == std::array<float, 4>{0, 0, 1, 1} && !probe) return;
+  static bool used = false, viewed = false;
+  if (!used && !viewed && values == std::array<float, 4>{0, 0, 1, 1} && !wanted && !probe) return;
   if (!std::all_of(values.begin(), values.end(), [](float v) { return std::isfinite(v); })) return;
   const uint32_t game = Pointer(kGame, 8);
   const uint32_t where = game ? Call(kWorldOf, game, 0) : 0;
   const uint32_t world = where ? Pointer(where, 136) : 0;
   if (!world) return;
   if (probe) Probe(world);
+  if (viewed || wanted) {
+    viewed = true;
+    DriveView(world, wanted);
+  }
   if (used || values != std::array<float, 4>{0, 0, 1, 1}) {
     used = true;
     Edit(world, values);

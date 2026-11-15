@@ -501,13 +501,17 @@ std::unique_ptr<MenuScreen> SettingsPages::Camera() {
     }
     rows.push_back(Setting(label, std::move(choices)));
   }
+  rows.push_back(Setting("DRIVING VIEW", {{"NORMAL", {{"lavender_drive_camera", "0"}}},
+                                         {"WHEEL", {{"lavender_drive_camera", "10"}}},
+                                         {"REPLAY", {{"lavender_drive_camera", "15"}}}}));
   MenuRow reset;
   reset.label = "RESET CAMERA";
   reset.activate = [this] {
     for (const auto& [key, value] : {std::pair{"lavender_chase_height", "0.0"},
                                      std::pair{"lavender_chase_distance", "0.0"},
                                      std::pair{"lavender_chase_fov", "1.0"},
-                                     std::pair{"lavender_chase_stiffness", "1.0"}}) {
+                                     std::pair{"lavender_chase_stiffness", "1.0"},
+                                     std::pair{"lavender_drive_camera", "0"}}) {
       config_.Set(key, value);
       rex::cvar::SetFlagByName(key, value);
     }
