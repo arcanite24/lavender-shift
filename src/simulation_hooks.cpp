@@ -16,6 +16,7 @@
 #include <rex/thread.h>
 
 #include "ai_driver.h"
+#include "audio_mix.h"
 #include "camera_editor.h"
 #include "dev_options.h"
 #include "graphics_hooks.h"
@@ -40,6 +41,7 @@ void LavenderObserveSimulationDelta(PPCRegister& f31) {
   lavender_shift::wide_view::Update();
   lavender_shift::ai_driver::Update();
   lavender_shift::camera_editor::Update();
+  lavender_shift::audio_mix::Update();
   lavender_shift::graphics::LogHookCalls();
   lavender_shift::stall::NoteFrame();
 }

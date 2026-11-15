@@ -240,3 +240,14 @@ how = """lavender_camera_probe logged the block and the camera's +256..+320 in f
 confidence = """confirmed"""
 note = """The two unknown fields and the stiffness fields' effect (the springs) were not checked by eye."""
 source = """src/camera_editor.cpp"""
+
+[[finding]]
+group = """Audio"""
+name = """mixer snapshot table and snapshot switch (audio.mixer_table)"""
+v2 = """mixer object (heap, found by FreeRoam's levels): snapshots at +1544, 0x214 apart; group current snapshot at +24968 + 4 * group (Gameplay = 2); last set +24964; Gameplay before a pause +24952. Switch 0x82D34400(mixer, snapshot); per-category apply loop near 0x82D2D508 calls the mixer's vtable +108"""
+fh1_v4 = """not mapped (Pinyon rewrites the XML instead)"""
+what = """The 44 snapshots of media/audio/AudioMixerSnapshots.xml in file order, each 22 records of 24 bytes {u8 active, f32 destvolume, f32 returntime, f32 returnfadetime, f32 fadetime, u32 category} in the file's category order, then the group id at +528. Each group (Gameplay, Speed, Location, VO, Radio, ...) holds one current snapshot and the groups' levels multiply. A switch fades every category to the snapshot's levels through the vtable; nothing reads the table between switches, so an edit alone waits for the next one. The switch does not skip the playing snapshot, so calling it again re-applies the edit with the game's fades."""
+how = """A memory scan for FreeRoam's levels, the 44 snapshots matched to the XML offline; the stride and switch found by `mulli 532` in the recompiled code. Live check: editing the table changed nothing on the guest output (shadow-mode RMS); calling the switch with the Gameplay group's snapshot took it to silence with every scaled category at 0 and back at 100."""
+confidence = """confirmed"""
+note = """The table address changes per run. The switch also writes +24952/+24964, which src/audio_mix.cpp puts back."""
+source = """src/audio_mix.cpp"""

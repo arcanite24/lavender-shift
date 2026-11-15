@@ -524,7 +524,8 @@ std::unique_ptr<MenuScreen> SettingsPages::Camera() {
 }
 
 // The output mix's gain and mute, both applied by the SDK's audio driver at
-// once (Pinyon Shift's AUDIO page; mixer levels need FH2's audio XML, LP-2.8).
+// once, and the game's own level of each sound category, scaled in its mixer
+// table and re-applied with the game's fades (src/audio_mix.cpp).
 std::unique_ptr<MenuScreen> SettingsPages::Audio() {
   std::vector<MenuRow> rows;
   std::vector<Choice> volumes;
@@ -533,6 +534,19 @@ std::unique_ptr<MenuScreen> SettingsPages::Audio() {
   }
   rows.push_back(Setting("MASTER VOLUME", std::move(volumes)));
   rows.push_back(Toggle("MUTE", "audio_mute"));
+  const auto mix = [&](std::string label, std::string name) {
+    std::vector<Choice> levels;
+    for (int percent = 0; percent <= 200; percent += 10) {
+      levels.push_back({std::to_string(percent) + "%", {{name, std::to_string(percent)}}});
+    }
+    rows.push_back(Setting(std::move(label), std::move(levels)));
+  };
+  mix("ENGINE", "lavender_mix_engine");
+  mix("OTHER CARS", "lavender_mix_opponents");
+  mix("TYRES", "lavender_mix_tyres");
+  mix("WIND", "lavender_mix_wind");
+  mix("AMBIENCE", "lavender_mix_ambience");
+  mix("GAME MUSIC", "lavender_mix_music");
   return std::make_unique<MenuScreen>("AUDIO", std::move(rows));
 }
 
