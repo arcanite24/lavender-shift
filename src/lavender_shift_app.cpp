@@ -35,6 +35,7 @@
 #include "diagnostics.h"
 #include "save_backups.h"
 #include "pause_menu_hooks.h"
+#include "ui/music.h"
 #include "ui/settings_menu.h"
 #include "ui/xam_dialogs.h"
 #include "guest_native/guest_native.h"
@@ -244,6 +245,13 @@ void LavenderShiftApp::OnPostSetup() {
   });
   rex::ui::RegisterBind("bind_hud", "F2", "Hide or show the game's HUD",
                         [] { lavender_shift::graphics::ToggleHud(); });
+  rex::ui::RegisterBind("bind_music_next", "F9", "Your music: next track",
+                        [] { lavender_shift::music::Next(); });
+  rex::ui::RegisterBind("bind_music_previous", "Shift+F9", "Your music: previous track",
+                        [] { lavender_shift::music::Previous(); });
+  lavender_shift::music::Install(user_root_, [this](std::function<void()> task) {
+    if (window()) window()->app_context().CallInUIThreadDeferred(std::move(task));
+  });
   // The Vulkan presenter picks its present mode from vsync when it creates
   // the swapchain, which a surface refresh does.
   rex::cvar::RegisterChangeCallback("vsync", [this](std::string_view, std::string_view) {
@@ -333,6 +341,9 @@ void LavenderShiftApp::OnShutdown() {
   lavender_shift::frame_rate::Uninstall();
   rex::ui::UnregisterBind("bind_hud");
   rex::ui::UnregisterBind("bind_photo");
+  rex::ui::UnregisterBind("bind_music_next");
+  rex::ui::UnregisterBind("bind_music_previous");
+  lavender_shift::music::Shutdown();
   rex::ui::UnregisterBind("bind_fullscreen");
   lavender_shift::movies::Uninstall();
   lavender_shift::wide_view::SetNarrowCallback(nullptr);

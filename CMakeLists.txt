@@ -52,6 +52,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/ui/photo_export.cpp
     src/ui/png_writer.cpp
     src/config/host_config.cpp
+    src/ui/music.cpp
     src/ui/settings_menu.cpp
     src/ui/xam_dialogs.cpp
     src/ui/hostui/bitmap_font.cpp

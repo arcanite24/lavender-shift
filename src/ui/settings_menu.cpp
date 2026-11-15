@@ -26,6 +26,7 @@
 #include "config/default_keys.h"
 #include "save_backups.h"
 #include "save_sync.h"
+#include "ui/music.h"
 #include "diagnostics.h"
 #include "frame_rate.h"
 
@@ -547,7 +548,25 @@ std::unique_ptr<MenuScreen> SettingsPages::Audio() {
   mix("WIND", "lavender_mix_wind");
   mix("AMBIENCE", "lavender_mix_ambience");
   mix("GAME MUSIC", "lavender_mix_music");
-  return std::make_unique<MenuScreen>("AUDIO", std::move(rows));
+  // Your Music (src/ui/music.cpp): the player's own files instead of the
+  // game's radio, which the game mutes once the host player has the music.
+  rows.push_back(Toggle("YOUR MUSIC", "lavender_music"));
+  std::vector<Choice> music_volumes;
+  for (int volume = 0; volume <= 100; volume += 10) {
+    music_volumes.push_back(
+        {std::to_string(volume), {{"lavender_music_volume", std::to_string(volume)}}});
+  }
+  rows.push_back(Setting("MUSIC VOLUME", std::move(music_volumes)));
+  rows.push_back(Toggle("SHUFFLE", "lavender_music_shuffle"));
+  MenuRow next;
+  next.label = "NEXT TRACK";
+  next.activate = [] { music::Next(); };
+  rows.push_back(std::move(next));
+  MenuRow previous;
+  previous.label = "PREVIOUS TRACK";
+  previous.activate = [] { music::Previous(); };
+  rows.push_back(std::move(previous));
+  return std::make_unique<MenuScreen>("AUDIO", std::move(rows), [] { return music::StatusLine(); });
 }
 
 // FH2's developer launch options, held live (src/dev_options.cpp).

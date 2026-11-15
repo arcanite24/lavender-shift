@@ -25,6 +25,7 @@
 #include "simulation_hooks.h"
 #include "stall_dump.h"
 #include "wide_view.h"
+#include "ui/music.h"
 
 void LavenderObserveSimulationDelta(PPCRegister& f31) {
   const double seconds = f31.f64;
@@ -41,6 +42,8 @@ void LavenderObserveSimulationDelta(PPCRegister& f31) {
   lavender_shift::wide_view::Update();
   lavender_shift::ai_driver::Update();
   lavender_shift::camera_editor::Update();
+  // A world exists from free roam on; the title has none (mode -1).
+  lavender_shift::music::SetInGame(lavender_shift::ai_driver::GameMode() != 0xFFFFFFFFu);
   lavender_shift::audio_mix::Update();
   lavender_shift::graphics::LogHookCalls();
   lavender_shift::stall::NoteFrame();
