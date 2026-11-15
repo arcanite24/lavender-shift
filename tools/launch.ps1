@@ -26,7 +26,8 @@ foreach ($folder in @($disc, $update)) {
     if (-not (Test-Path -LiteralPath $folder)) { throw "Run tools/lavender_setup.py first: $folder" }
 }
 if (-not $UserRoot) { $UserRoot = Join-Path $root '.local/user' }
-[void](New-Item -ItemType Directory -Force -Path $UserRoot)
+# The game resolves a relative folder against its own, not this one.
+$UserRoot = (New-Item -ItemType Directory -Force -Path $UserRoot).FullName
 if (-not $SkipShaderPreparation) {
     & (Join-Path $PSScriptRoot 'prepare_shaders.ps1') -UserRoot $UserRoot
 }
