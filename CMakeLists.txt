@@ -56,6 +56,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/mods/archive_checks.cpp
     src/mods/overlay_device.cpp
     src/platform/display_hdr.cpp
+    src/ui/frame_inspector.cpp
     src/ui/music.cpp
     src/ui/settings_menu.cpp
     src/ui/xam_dialogs.cpp

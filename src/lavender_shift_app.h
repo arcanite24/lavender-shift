@@ -14,6 +14,7 @@
 #include "save_backups.h"
 #include "save_sync.h"
 #include <rex/kernel/xam/ui_provider.h>
+#include "ui/frame_inspector.h"
 #include "ui/hostui/host_ui.h"
 
 // From the generated init header (lavender_shift_pch.h).
@@ -35,6 +36,7 @@ class LavenderShiftApp : public rex::ReXApp {
   void OnPostInitLogging() override;
   void OnPostSetup() override;
   void OnShutdown() override;
+  bool ShouldStartModuleThread() override;
 
  private:
   // The in-game settings menu (F6, or Back+Start on a pad).
@@ -43,6 +45,9 @@ class LavenderShiftApp : public rex::ReXApp {
   void QuitFromMenu();
   // Recreates the swapchain, for settings it reads when it is created.
   void RefreshSurface();
+  // The desktop frame inspector (Ctrl+F8), Pinyon Shift's.
+  void ToggleFrameInspector();
+  std::unique_ptr<lavender_shift::ui::FrameInspector> frame_inspector_;
   // WIDER VIEW (Hor+): the widening for the window's aspect, and the switch
   // between the stretched gameplay view and the game's letterboxed screens.
   void UpdateHorPlus();

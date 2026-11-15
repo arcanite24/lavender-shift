@@ -38,6 +38,7 @@
 #include "pause_menu_hooks.h"
 #include "mods/mods.h"
 #include "mods/overlay_device.h"
+#include "ui/frame_inspector.h"
 #include "ui/music.h"
 #include "ui/settings_menu.h"
 #include "ui/xam_dialogs.h"
@@ -86,6 +87,17 @@ REXCVAR_DEFINE_STRING(lavender_device_name, "", "Lavender Shift",
                       "This device's name as other devices show it in SAVE SYNC; empty uses "
                       "the computer's name")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+#if !defined(__ANDROID__)
+REXCVAR_DEFINE_BOOL(fh1_frame_inspector, false, "GPU",
+                    "Open the desktop frame inspector on startup (Ctrl+F8 toggles it)")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+REXCVAR_DEFINE_BOOL(fh1_frame_inspector_replay, false, "GPU",
+                    "Start a desktop frame-dump workspace with the title suspended")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+REXCVAR_DEFINE_INT32(fh1_frame_inspector_view, 0, "GPU",
+                     "Initial replay inspector view: 0 color, 1 wireframe, 2 overdraw")
+    .range(0, 2);
+#endif
 REXCVAR_DEFINE_BOOL(lavender_windows_hdr, false, "Display",
                     "Windows: turn HDR on for the game's display while the game runs, and "
                     "back off when it closes (a display already in HDR is left on)")
@@ -287,6 +299,13 @@ void LavenderShiftApp::OnPostInitLogging() {
 }
 
 void LavenderShiftApp::OnPostSetup() {
+#if !defined(__ANDROID__)
+  rex::ui::RegisterBind("bind_frame_inspector", "Ctrl+F8", "Toggle the desktop frame inspector",
+                        [this] { ToggleFrameInspector(); });
+  if (REXCVAR_GET(fh1_frame_inspector) || REXCVAR_GET(fh1_frame_inspector_replay)) {
+    ToggleFrameInspector();
+  }
+#endif
   if (config_created_) ApplyFirstRunDefaults();
   MountMods();
   lavender_shift::movies::Install();
@@ -450,6 +469,8 @@ void LavenderShiftApp::OnPostSetup() {
 }
 
 void LavenderShiftApp::OnShutdown() {
+  rex::ui::UnregisterBind("bind_frame_inspector");
+  frame_inspector_.reset();
   lavender_shift::guest_native::RecordSummary();
   rex::ui::UnregisterBind("bind_game_menu");
   lavender_shift::pause_menu::SetSettingsHandler(nullptr);
@@ -495,6 +516,28 @@ void LavenderShiftApp::PostToast(std::string heading, std::string title, std::st
           host_ui_->ShowToast(std::move(heading), std::move(title), std::move(detail), nullptr);
         }
       });
+}
+
+void LavenderShiftApp::ToggleFrameInspector() {
+#if !defined(__ANDROID__)
+  if (frame_inspector_ && frame_inspector_->is_open()) {
+    frame_inspector_.reset();
+    return;
+  }
+  auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
+  if (!graphics || !imgui_drawer() || !immediate_drawer()) return;
+  frame_inspector_ = std::make_unique<lavender_shift::ui::FrameInspector>(
+      *imgui_drawer(), *immediate_drawer(), *graphics, REXCVAR_GET(fh1_frame_inspector_replay));
+#endif
+}
+
+// A frame replay (fh1_frame_replay) or the replay workspace drives the GPU on
+// its own; the title stays suspended.
+bool LavenderShiftApp::ShouldStartModuleThread() {
+#if !defined(__ANDROID__)
+  if (REXCVAR_GET(fh1_frame_inspector_replay)) return false;
+#endif
+  return rex::cvar::GetFlagByName("fh1_frame_replay").empty();
 }
 
 void LavenderShiftApp::RefreshSurface() {
