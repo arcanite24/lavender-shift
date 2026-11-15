@@ -36,6 +36,7 @@
 #include "diagnostics.h"
 #include "save_backups.h"
 #include "pause_menu_hooks.h"
+#include "mods/immersive_camera.h"
 #include "mods/mods.h"
 #include "mods/overlay_device.h"
 #include "ui/frame_inspector.h"
@@ -260,8 +261,12 @@ void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
 // The enabled mods' files: game/ over the disc's files, textures/ and
 // shaders/ ahead of any folders the settings name.
 void LavenderShiftApp::MountMods() {
-  if (enabled_mods_.empty()) return;
-  lavender_shift::mods::Load(user_root_, enabled_mods_);
+  // The immersive camera's camera.zip (src/mods/immersive_camera.h), kept in
+  // the player's own cache and served behind every mod's files.
+  const auto immersive_camera = lavender_shift::mods::BuildImmersiveCamera(
+      game_data_root(), photos_dir_.parent_path() / "cache");
+  std::vector<std::filesystem::path> game_roots;
+  if (!enabled_mods_.empty()) lavender_shift::mods::Load(user_root_, enabled_mods_);
   const auto join = [](const std::vector<std::filesystem::path>& roots, std::string configured) {
     std::string dirs;
     for (const auto& root : roots) dirs += (dirs.empty() ? "" : ";") + rex::path_to_utf8(root);
@@ -277,7 +282,9 @@ void LavenderShiftApp::MountMods() {
       lavender_shift::diagnostics::RecordEvent("mod.folders", {{"kind", folder}, {"dirs", dirs}});
     }
   }
-  if (auto roots = lavender_shift::mods::Roots("game"); !roots.empty()) {
+  if (!enabled_mods_.empty()) game_roots = lavender_shift::mods::Roots("game");
+  if (!immersive_camera.empty()) game_roots.push_back(immersive_camera);
+  if (auto roots = std::move(game_roots); !roots.empty()) {
     auto overlay = std::make_unique<lavender_shift::mods::OverlayDevice>(
         "\\Device\\Harddisk0\\Partition1", game_data_root(), std::move(roots));
     if (overlay->Initialize() && runtime()->file_system()->ReplaceDevice(std::move(overlay))) {

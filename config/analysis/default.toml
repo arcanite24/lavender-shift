@@ -954,6 +954,14 @@ name = "LavenderDisableDepthOfField"
 registers = ["r11"]
 jump_address_on_true = 0x82467C40
 
+# One camera physics layer's update, r31 the layer, its Param factor stored
+# at [r1+96]: the immersive camera scales its tagged layers here
+# (src/mods/immersive_camera.cpp; FH1 v4 0x82908120, exact).
+[[midasm_hook]]
+address = 0x829C4678
+name = "LavenderImmersiveCameraLayer"
+registers = ["r1", "r31"]
+
 # The camera's vertical field of view returned in f1 (FH1 v4 0x828FF264,
 # context).
 [[midasm_hook]]

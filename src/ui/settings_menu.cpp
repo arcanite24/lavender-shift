@@ -513,6 +513,32 @@ std::unique_ptr<MenuScreen> SettingsPages::Camera() {
   rows.push_back(Setting("DRIVING VIEW", {{"NORMAL", {{"lavender_drive_camera", "0"}}},
                                          {"WHEEL", {{"lavender_drive_camera", "10"}}},
                                          {"REPLAY", {{"lavender_drive_camera", "15"}}}}));
+  // G-forces, lean, speed shake and head motion layered on the game's own
+  // camera physics (src/mods/immersive_camera.h, Pinyon Shift's), scaled
+  // while the game runs: a preset sets all four, and changing one shows
+  // CUSTOM. Lean, shake and head motion are on the cockpit and hood cameras.
+  if (SameValue(Live("lavender_immersive_camera"), "true")) {
+    const std::string_view groups[] = {"lavender_camera_gforce", "lavender_camera_lean",
+                                       "lavender_camera_shake", "lavender_camera_head"};
+    std::vector<Choice> presets;
+    for (const auto& [label, value] : {std::pair{"OFF", "0.00"}, std::pair{"SUBTLE", "0.50"},
+                                       std::pair{"DEFAULT", "1.00"}, std::pair{"STRONG", "1.50"}}) {
+      Choice preset{label, {}};
+      for (const auto group : groups) preset.values.push_back({std::string(group), value});
+      presets.push_back(std::move(preset));
+    }
+    rows.push_back(Setting("IMMERSIVE CAMERA", std::move(presets)));
+    const char* labels[] = {"CAMERA G-FORCE", "CAMERA LEAN", "CAMERA SPEED SHAKE",
+                            "CAMERA HEAD MOTION"};
+    for (size_t i = 0; i < std::size(groups); ++i) {
+      std::vector<Choice> amounts;
+      for (int percent = 0; percent <= 200; percent += 25) {
+        amounts.push_back({percent == 100 ? std::string("DEFAULT") : std::to_string(percent) + "%",
+                           {{std::string(groups[i]), fmt::format("{:.2f}", percent / 100.0)}}});
+      }
+      rows.push_back(Setting(labels[i], std::move(amounts)));
+    }
+  }
   MenuRow reset;
   reset.label = "RESET CAMERA";
   reset.activate = [this] {

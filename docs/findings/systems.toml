@@ -262,3 +262,13 @@ how = """Pinyon's address mapper (aligned) and identical instructions and regist
 confidence = """confirmed"""
 note = """The error itself was not reproduced without the hooks; the hooks fire only on a mismatch, which shows the check runs on the file."""
 source = """src/mods/archive_checks.cpp"""
+
+[[finding]]
+group = """Files"""
+name = """archive directory from zipmanifest.xml, member data offsets in an extra field"""
+v2 = """media/zipmanifest.xml (one <Zip> line per archive: path, priority, dirstart, dirsize with the end record, direntries); extra field 0x1123 (4 bytes) in each central record"""
+fh1_v4 = """same, as Pinyon's tools/build-mod-archives.py rewrites them"""
+what = """FH2 finds each archive's central directory from its zipmanifest.xml line, not the archive's end record, and each member's data from the absolute offset in the central record's 0x1123 extra field. An archive rebuilt with members at new offsets must update both."""
+how = """camera.zip rebuilt with CameraPhysics.xml stored (262,598 bytes against 45,565) passed the size and block checks but the title stopped at the legal screen, also with the stock XML stored; with the data offsets and the manifest line rewritten (and the manifest served beside it) free roam loaded."""
+confidence = """confirmed"""
+source = """src/mods/immersive_camera.cpp"""
