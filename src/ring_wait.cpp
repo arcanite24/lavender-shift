@@ -5,10 +5,13 @@
 // On the host that loop keeps the render thread at a full core while the CP
 // works through the ring.
 //
-// The override blocks first, until the CP writes something CPU-visible (the
-// read pointer included, with gpu_read_pointer_publish_dwords set) or the
-// timeout passes, whenever the read pointer has not moved since the last
-// poll. The original then runs unchanged, so its bookkeeping and hang check
+// Whenever the read pointer has not moved since the last poll, the override
+// can first re-read it for a few microseconds (lavender_ring_wait_spin_us;
+// Pinyon Shift spins 20 us in its fence wait, but four desktop runs here
+// could not tell 0 from 20 apart, so it stays 0), then blocks until the CP
+// writes something CPU-visible (the read pointer included, with
+// gpu_read_pointer_publish_dwords set) or the timeout passes. The original
+// then runs unchanged, so its bookkeeping and hang check
 // still see real time pass.
 
 #include <chrono>
@@ -25,6 +28,11 @@ REXCVAR_DEFINE_INT32(lavender_ring_wait_us, 1000, "Lavender Shift",
                      "the game's busy poll")
     .range(0, 100000)
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
+REXCVAR_DEFINE_INT32(lavender_ring_wait_spin_us, 0, "Lavender Shift",
+                     "Microseconds each poll of FH2's ring-buffer wait re-reads the read "
+                     "pointer before it sleeps (lavender_ring_wait_us)")
+    .range(0, 1000)
+    .lifecycle(rex::cvar::Lifecycle::kHotReload);
 
 extern "C" REX_FUNC(__imp__sub_82B72EA8);
 
@@ -37,6 +45,12 @@ uint32_t Load32(const uint8_t* base, uint32_t address) {
   uint32_t value;
   __builtin_memcpy(&value, base + address, sizeof(value));
   return __builtin_bswap32(value);
+}
+
+// The same, as an atomic load the compiler re-reads in a polling loop.
+uint32_t LoadAcquire32(const uint8_t* base, uint32_t address) {
+  return __builtin_bswap32(
+      __atomic_load_n(reinterpret_cast<const uint32_t*>(base + address), __ATOMIC_ACQUIRE));
 }
 
 // Offsets into the wait state (r3) and the device it points to.
@@ -55,9 +69,16 @@ extern "C" REX_FUNC(sub_82B72EA8) {
     // Take the sequence before reading the pointer, so a writeback in
     // between ends the wait at once.
     const uint32_t seen = rex::system::GpuWriteSequence();
-    if (read_pointer_address &&
-        Load32(base, read_pointer_address) == Load32(base, state + kStateLastReadPointer)) {
-      rex::system::WaitForGpuWrite(seen, std::chrono::microseconds(wait_us));
+    const uint32_t last_seen = Load32(base, state + kStateLastReadPointer);
+    if (read_pointer_address && LoadAcquire32(base, read_pointer_address) == last_seen) {
+      bool moved = false;
+      if (const int32_t spin_us = REXCVAR_GET(lavender_ring_wait_spin_us); spin_us > 0) {
+        const auto spin_end = std::chrono::steady_clock::now() + std::chrono::microseconds(spin_us);
+        do {
+          moved = LoadAcquire32(base, read_pointer_address) != last_seen;
+        } while (!moved && std::chrono::steady_clock::now() < spin_end);
+      }
+      if (!moved) rex::system::WaitForGpuWrite(seen, std::chrono::microseconds(wait_us));
     }
   }
   __imp__sub_82B72EA8(ctx, base);
