@@ -53,6 +53,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/ui/png_writer.cpp
     src/config/host_config.cpp
     src/mods/mods.cpp
+    src/mods/archive_checks.cpp
     src/mods/overlay_device.cpp
     src/ui/music.cpp
     src/ui/settings_menu.cpp

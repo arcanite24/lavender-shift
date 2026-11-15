@@ -1104,3 +1104,25 @@ address = 0x82511B18
 name = "LavenderAiSpawnConfig"
 registers = ["r1"]
 
+
+# Mod archives (src/mods/archive_checks.cpp): sub_82D8BFB0 reads game-file
+# blocks and checks each with sub_82D867F0 against a per-file SHA-256 table
+# ([r24+28], 32 bytes a block; the path is [r24+32]), and a mismatch ends in
+# the dirty-disc error. These run on the result (r3) for whole blocks and
+# for the last partial one (FH1 v4 0x82CC4C00 and 0x82CC4C3C, aligned).
+[[midasm_hook]]
+address = 0x82D8C258
+name = "LavenderAcceptModdedBlock"
+registers = ["r3", "r24"]
+
+[[midasm_hook]]
+address = 0x82D8C294
+name = "LavenderAcceptModdedLastBlock"
+registers = ["r3", "r24"]
+
+# The file's real size (r6) against the table's (r31) when such a file is
+# opened in sub_82D8A8D8; the path is at [r1+92] (FH1 v4 0x82CC359C, aligned).
+[[midasm_hook]]
+address = 0x82D8ABEC
+name = "LavenderAcceptModdedFileSize"
+registers = ["r1", "r6", "r31"]
