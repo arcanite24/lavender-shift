@@ -32,6 +32,28 @@ fold_rodata_loads = true
 host_local_register_saves = true
 host_local_lr = true
 
+# Physics specialised at build time (docs/PINYON_PARITY.md LP-4.4), Pinyon
+# Shift's lists through its address mapper: the 19 functions of FH1's
+# 131-function physics family whose code got at least 3 % shorter there.
+# register_locals_functions keeps the guest registers in C++ locals, written
+# back at calls and returns; fixed_fp_mode_functions reads the fixed FP mode
+# switch once per call; single_precision_functions computes fmadds-family
+# operations as one single-precision fma, the guest's rounding. Mapped:
+# 6 exact, 8 aligned with equal lengths, 5 by context (3 identical over 256
+# instructions, 0x82E403D8 and 0x82E41CF0 over 89 and 221).
+register_locals_functions = [0x82E403D8, 0x82E41CF0, 0x82E44240, 0x82E44CA0,
+    0x82E9B168, 0x82E9DB10, 0x82EA8D08, 0x82EAC290, 0x82EAC948, 0x82EAD600,
+    0x82EAE908, 0x82EBA810, 0x82EBAC10, 0x82EBBF70, 0x82EC37B8, 0x82EC4CF0,
+    0x82EC5EA0, 0x82ED4050, 0x82FBA418]
+fixed_fp_mode_functions = [0x82E403D8, 0x82E41CF0, 0x82E44240, 0x82E44CA0,
+    0x82E9B168, 0x82E9DB10, 0x82EA8D08, 0x82EAC290, 0x82EAC948, 0x82EAD600,
+    0x82EAE908, 0x82EBA810, 0x82EBAC10, 0x82EBBF70, 0x82EC37B8, 0x82EC4CF0,
+    0x82EC5EA0, 0x82ED4050, 0x82FBA418]
+single_precision_functions = [0x82E403D8, 0x82E41CF0, 0x82E44240, 0x82E44CA0,
+    0x82E9B168, 0x82E9DB10, 0x82EA8D08, 0x82EAC290, 0x82EAC948, 0x82EAD600,
+    0x82EAE908, 0x82EBA810, 0x82EBAC10, 0x82EBBF70, 0x82EC37B8, 0x82EC4CF0,
+    0x82EC5EA0, 0x82ED4050, 0x82FBA418]
+
 # CRT memory functions and XAPI fibers, served by the SDK. The four fiber
 # functions map exactly; SwitchToFiber is, as in FH1, a tail branch to the
 # context switch, here 0x831D9180 (FH1 0x831AF790, mapped by context).
