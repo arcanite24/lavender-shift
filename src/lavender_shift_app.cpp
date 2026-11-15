@@ -35,6 +35,8 @@
 #include "diagnostics.h"
 #include "save_backups.h"
 #include "pause_menu_hooks.h"
+#include "mods/mods.h"
+#include "mods/overlay_device.h"
 #include "ui/music.h"
 #include "ui/settings_menu.h"
 #include "ui/xam_dialogs.h"
@@ -73,6 +75,10 @@ REXCVAR_DEFINE_STRING(lavender_sync_folder, "", "Lavender Shift",
                       "A folder a sync app (Syncthing, Dropbox, OneDrive...) keeps in step "
                       "between devices; the save and achievements are shared through it "
                       "(docs/SAVE_SYNC.md). Empty: off")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+REXCVAR_DEFINE_STRING(enabled_mods, "", "Mods",
+                      "The mods in <user>/mods to load, comma-separated, earlier ones winning "
+                      "(src/mods/mods.h)")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_STRING(lavender_device_name, "", "Lavender Shift",
                       "This device's name as other devices show it in SAVE SYNC; empty uses "
@@ -182,6 +188,62 @@ void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
     }
   }
   host_config_ = std::make_unique<lavender_shift::config::HostConfig>(paths.config_path);
+  // Mods that change more than how the game looks or sounds play a separate
+  // profile, <user>-modded, which starts as a copy of the player's saves,
+  // unlocks and caches. The settings, logs, photos, backups and save sync
+  // stay with the player's own folder.
+  enabled_mods_ = setting("enabled_mods", REXCVAR_GET(enabled_mods));
+  if (!enabled_mods_.empty() &&
+      !lavender_shift::mods::ShareSave(paths.user_data_root, enabled_mods_)) {
+    const auto modded = lavender_shift::mods::ModdedProfile(paths.user_data_root);
+    if (!std::filesystem::exists(modded, error)) {
+      std::filesystem::create_directories(modded, error);
+      for (const auto& entry : std::filesystem::directory_iterator(paths.user_data_root, error)) {
+        const auto name = entry.path().filename();
+        if (entry.is_directory(error) && (lavender_shift::IsSaveFolder(name) ||
+                                          name == "achievements" || name == "cache")) {
+          std::filesystem::copy(entry.path(), modded / name,
+                                std::filesystem::copy_options::recursive, error);
+        }
+      }
+      lavender_shift::diagnostics::RecordEvent(
+          "mod.profile.created",
+          {{"path", rex::path_to_utf8(modded)}, {"error", error ? error.message() : ""}});
+    }
+    paths.user_data_root = modded;
+  }
+}
+
+// The enabled mods' files: game/ over the disc's files, textures/ and
+// shaders/ ahead of any folders the settings name.
+void LavenderShiftApp::MountMods() {
+  if (enabled_mods_.empty()) return;
+  lavender_shift::mods::Load(user_root_, enabled_mods_);
+  const auto join = [](const std::vector<std::filesystem::path>& roots, std::string configured) {
+    std::string dirs;
+    for (const auto& root : roots) dirs += (dirs.empty() ? "" : ";") + rex::path_to_utf8(root);
+    if (!configured.empty()) dirs += ";" + configured;
+    return dirs;
+  };
+  // Defined in the GPU module, so set by name.
+  for (const auto& [folder, cvar] : {std::pair{"textures", "texture_replacement_dirs"},
+                                     std::pair{"shaders", "vulkan_shader_override_dirs"}}) {
+    if (auto roots = lavender_shift::mods::Roots(folder); !roots.empty()) {
+      const std::string dirs = join(roots, rex::cvar::GetFlagByName(cvar));
+      rex::cvar::SetFlagByName(cvar, dirs);
+      lavender_shift::diagnostics::RecordEvent("mod.folders", {{"kind", folder}, {"dirs", dirs}});
+    }
+  }
+  if (auto roots = lavender_shift::mods::Roots("game"); !roots.empty()) {
+    auto overlay = std::make_unique<lavender_shift::mods::OverlayDevice>(
+        "\\Device\\Harddisk0\\Partition1", game_data_root(), std::move(roots));
+    if (overlay->Initialize() && runtime()->file_system()->ReplaceDevice(std::move(overlay))) {
+      lavender_shift::diagnostics::RecordEvent("mod.overlay.mounted");
+    } else {
+      REXLOG_ERROR("Mods: could not mount the game file overlay");
+      lavender_shift::diagnostics::RecordEvent("mod.overlay.error");
+    }
+  }
 }
 
 // --perf_log_csv=<path> writes one row of the SDK's counters per frame; the
@@ -195,6 +257,7 @@ void LavenderShiftApp::OnPostInitLogging() {
 
 void LavenderShiftApp::OnPostSetup() {
   if (config_created_) ApplyFirstRunDefaults();
+  MountMods();
   lavender_shift::movies::Install();
   lavender_shift::frame_rate::Install(window() ? window()->GetNativeWindowHandle() : nullptr);
   ApplyMasterVolume();

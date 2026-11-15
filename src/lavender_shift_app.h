@@ -71,6 +71,8 @@ class LavenderShiftApp : public rex::ReXApp {
   // when no folder is set.
   std::unique_ptr<lavender_shift::SaveSync> save_sync_;
   lavender_shift::SaveSync::StartupResult sync_startup_;
+  std::string enabled_mods_;
+  void MountMods();
   // A notification from any thread, shown by the host UI.
   void PostToast(std::string heading, std::string title, std::string detail);
   std::unique_ptr<rex::kernel::xam::XamUiProvider> xam_dialogs_;
