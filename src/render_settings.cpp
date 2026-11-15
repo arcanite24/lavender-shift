@@ -164,6 +164,8 @@ void LavenderRenderSettingLoaded(PPCRegister& r26, PPCRegister& r30) {
 
 namespace lavender_shift::render_settings {
 
+uint32_t World() { return g_world.load(std::memory_order_relaxed); }
+
 void Apply() {
   std::lock_guard<std::mutex> lock(g_mutex);
   if (g_scenarios.empty()) return;

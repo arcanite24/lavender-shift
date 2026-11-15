@@ -619,6 +619,23 @@ std::unique_ptr<MenuScreen> SettingsPages::Cheats() {
   std::vector<MenuRow> rows;
   rows.push_back(Toggle("ANY CAR IN ANY EVENT", "lavender_cheat_any_car_events"));
   rows.push_back(Toggle("NO AI CATCH-UP", "lavender_cheat_no_catch_up"));
+  std::vector<Choice> times;
+  times.push_back({"RUNNING", {{"lavender_cheat_time_of_day", "-1"}}});
+  for (const char* hour : {"0", "3", "6", "9", "12", "15", "18", "21"}) {
+    const std::string label = std::string(hour[1] ? "" : "0") + hour + ":00";
+    times.push_back({label, {{"lavender_cheat_time_of_day", hour}}});
+  }
+  rows.push_back(Setting("TIME OF DAY", std::move(times)));
+  // How long 24 game hours last while the time of day runs; events and
+  // scripts that set the time still do.
+  rows.push_back(Setting("DAY LENGTH", {{"GAME", {{"lavender_cheat_day_length_minutes", "0"}}},
+                                        {"12 MIN", {{"lavender_cheat_day_length_minutes", "12"}}},
+                                        {"24 MIN", {{"lavender_cheat_day_length_minutes", "24"}}},
+                                        {"48 MIN", {{"lavender_cheat_day_length_minutes", "48"}}},
+                                        {"2 H", {{"lavender_cheat_day_length_minutes", "120"}}},
+                                        {"6 H", {{"lavender_cheat_day_length_minutes", "360"}}},
+                                        {"24 H", {{"lavender_cheat_day_length_minutes", "1440"}}},
+                                        {"PC CLOCK", {{"lavender_cheat_day_length_minutes", "-1"}}}}));
   // Credits change at once, through the title's own setter (LP-2.12).
   for (const auto& [label, amount] : {std::pair{"ADD 10,000 CR", int64_t(10'000)},
                                       std::pair{"ADD 100,000 CR", int64_t(100'000)},
