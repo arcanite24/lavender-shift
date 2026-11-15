@@ -121,6 +121,20 @@ public class LavenderShiftActivity extends SDLActivity {
         return first != null ? first : getFilesDir();
     }
 
+    // The save sync folder in the app's media folder on internal storage,
+    // made when missing; null when there is none.
+    @SuppressWarnings("deprecation")
+    private File syncFolder() {
+        File[] media = getExternalMediaDirs();
+        if (media == null || media.length == 0 || media[0] == null) return null;
+        File sync = new File(media[0], "sync");
+        if (!sync.isDirectory() && !sync.mkdirs()) {
+            Log.w(TAG, "Cannot create the save sync folder " + sync);
+            return null;
+        }
+        return sync;
+    }
+
     // The C++ runtime first, then the ReXGlue runtime, which holds SDL and
     // registers its Java natives when loaded, then the game (libmain.so),
     // whose SDL_main SDL calls.
@@ -172,6 +186,14 @@ public class LavenderShiftActivity extends SDLActivity {
         arguments.add("--gpu_backend=vulkan");
         arguments.add("--xam_xstudio_request_unsupported=true");
         arguments.add("--gpu_read_pointer_publish_dwords=1024");
+        // Save sync (docs/SAVE_SYNC.md): Android/media/<package>/sync, unlike
+        // the files folder under Android/data, is open to a sync app with
+        // all-files access (Syncthing-Fork), so pointing one at it shares the
+        // save. A --lavender_sync_folder= line in the arguments file
+        // overrides it (an empty value turns sync off).
+        File sync = syncFolder();
+        if (sync != null) arguments.add("--lavender_sync_folder=" + sync.getAbsolutePath());
+        arguments.add("--lavender_device_name=" + android.os.Build.MODEL);
         File file = new File(base, ARGUMENTS_FILE);
         if (file.isFile()) {
             try (BufferedReader reader = new BufferedReader(new FileReader(file))) {

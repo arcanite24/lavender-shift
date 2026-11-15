@@ -155,6 +155,9 @@ public sealed class LauncherSettings
     public string? TitleUpdate { get; set; }
     public bool OwnershipConfirmed { get; set; }
     public bool MicrosoftLicenseAccepted { get; set; }
+    /// <summary>The folder save sync shares the save through, or null when
+    /// it is off (docs/SAVE_SYNC.md).</summary>
+    public string? SyncFolder { get; set; }
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 

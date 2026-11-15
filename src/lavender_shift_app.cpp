@@ -68,6 +68,15 @@ REXCVAR_DEFINE_BOOL(lavender_save_backups, true, "Lavender Shift",
 REXCVAR_DEFINE_INT32(lavender_save_backup_count, 10, "Lavender Shift",
                      "Save backups to keep; older ones are deleted")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+REXCVAR_DEFINE_STRING(lavender_sync_folder, "", "Lavender Shift",
+                      "A folder a sync app (Syncthing, Dropbox, OneDrive...) keeps in step "
+                      "between devices; the save and achievements are shared through it "
+                      "(docs/SAVE_SYNC.md). Empty: off")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+REXCVAR_DEFINE_STRING(lavender_device_name, "", "Lavender Shift",
+                      "This device's name as other devices show it in SAVE SYNC; empty uses "
+                      "the computer's name")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_BOOL(lavender_hor_plus, false, "Display",
                     "Ultrawide: widen the horizontal field of view to the window's aspect "
                     "(Hor+), shown stretched from the 16:9 image; the HUD keeps its shape")
@@ -135,6 +144,26 @@ void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
   lavender_shift::SaveBackups::ApplyPendingRestore(paths.user_data_root,
                                                    paths.user_data_root / "backups" / "saves");
   user_root_ = paths.user_data_root;
+  // Save sync, also before the title reads its saves and the runtime its
+  // achievement unlocks: a save another device continued from this one's
+  // is put in place, and every device's unlocks are merged.
+  // The settings file is loaded only after this, so its values are read
+  // here when the command line did not set them.
+  const auto setting = [&](const char* name, std::string value) {
+    if (rex::cvar::GetFlagSource(name) == rex::cvar::Source::kDefault) {
+      if (auto text = lavender_shift::config::ReadFile(paths.config_path)) {
+        value = lavender_shift::config::GetValue(*text, name).value_or(value);
+      }
+    }
+    return value;
+  };
+  const std::string sync_folder = setting("lavender_sync_folder", REXCVAR_GET(lavender_sync_folder));
+  if (!sync_folder.empty()) {
+    save_sync_ = std::make_unique<lavender_shift::SaveSync>(
+        paths.user_data_root, rex::to_path(sync_folder),
+        setting("lavender_device_name", REXCVAR_GET(lavender_device_name)));
+    sync_startup_ = save_sync_->Startup();
+  }
   photos_dir_ = paths.user_data_root / "photos";
   std::error_code error;
   std::filesystem::create_directories(paths.config_path.parent_path(), error);
@@ -226,7 +255,38 @@ void LavenderShiftApp::OnPostSetup() {
     save_backups_ = std::make_unique<lavender_shift::SaveBackups>(
         user_root_, user_root_ / "backups" / "saves",
         size_t(std::max(1, REXCVAR_GET(lavender_save_backup_count))));
+    // Each snapshot is a copy of the saves taken while they were still, so
+    // sync publishes from it, never from files the title may be writing.
+    if (save_sync_) {
+      save_backups_->SetOnSnapshot(
+          [sync = save_sync_.get()](const std::filesystem::path& copy) { sync->Export(copy); });
+    }
     save_backups_->Start();
+  }
+  if (save_sync_) {
+    save_sync_->Watch([this](const std::vector<lavender_shift::SaveSync::Remote>& news,
+                             bool first_poll) {
+      if (first_poll) {
+        if (sync_startup_.folder_unavailable) {
+          PostToast("SAVE SYNC", "THE SYNC FOLDER IS NOT REACHABLE",
+                    "This session's progress stays on this device");
+          return;
+        }
+        if (!sync_startup_.imported_from.empty()) {
+          PostToast("SAVE SYNC", "LOADED THE SAVE FROM " + sync_startup_.imported_from,
+                    "This device's previous save is in SAVE BACKUPS");
+        }
+      }
+      for (const auto& remote : news) {
+        if (remote.relation == lavender_shift::SaveSync::Relation::kDiverged) {
+          PostToast("SAVE SYNC", "YOUR SAVE ALSO CHANGED ON " + remote.device_name,
+                    "Choose which to keep: SETTINGS > PROFILE > SAVE SYNC");
+        } else {
+          PostToast("SAVE SYNC", "A NEWER SAVE FROM " + remote.device_name + " IS WAITING",
+                    "It loads when the game next starts");
+        }
+      }
+    });
   }
   if (REXCVAR_GET(lavender_host_xam_dialogs)) {
     xam_dialogs_ = lavender_shift::ui::CreateXamDialogs(
@@ -289,6 +349,23 @@ void LavenderShiftApp::OnShutdown() {
   host_ui_.reset();
   // Takes the exit backup when the saves changed since the last one.
   save_backups_.reset();
+  // The title has stopped: publish the save as it was left (also when
+  // backups are off, or a SAVE SYNC choice changed what to publish).
+  if (save_sync_) {
+    save_sync_->StopWatching();
+    save_sync_->Export(user_root_);
+  }
+}
+
+void LavenderShiftApp::PostToast(std::string heading, std::string title, std::string detail) {
+  if (!window()) return;
+  window()->app_context().CallInUIThreadDeferred(
+      [this, heading = std::move(heading), title = std::move(title),
+       detail = std::move(detail)]() mutable {
+        if (EnsureHostUi()) {
+          host_ui_->ShowToast(std::move(heading), std::move(title), std::move(detail), nullptr);
+        }
+      });
 }
 
 void LavenderShiftApp::RefreshSurface() {
@@ -325,6 +402,7 @@ void LavenderShiftApp::ToggleSettingsMenu() {
   lavender_shift::ui::SettingsServices services;
   services.quit = [this] { QuitFromMenu(); };
   services.save_backups = save_backups_.get();
+  services.save_sync = save_sync_.get();
   services.draw_resolution_scale = [this]() -> uint32_t {
     auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
     return graphics ? graphics->draw_resolution_scale() : 0;

@@ -69,6 +69,7 @@ public partial class MainWindow : Window
         SetDisc(settings.DiscImage);
         SetUpdate(settings.TitleUpdate);
         OwnershipCheckBox.IsChecked = settings.OwnershipConfirmed;
+        OpenSyncButton.Content = settings.SyncFolder is null ? "Save sync" : "Save sync: on";
         if (layout.PinsPrebuiltKit())
         {
             MicrosoftLicenseCheckBox.Visibility = Visibility.Visible;
@@ -132,7 +133,7 @@ public partial class MainWindow : Window
                 break;
             case Mode.Ready:
                 HeadlineText.Text = "Ready to drive";
-                SetSubhead("Vulkan · F6 opens settings in game");
+                SetSubhead(ReadySubhead());
                 PrimaryButtonText.Text = "Play";
                 foreach (var step in steps) step.SetState(StepState.Complete);
                 gameWatch.Stop();
@@ -397,7 +398,7 @@ public partial class MainWindow : Window
         int code;
         try
         {
-            code = await launch.RunAsync(layout.Tool("launch.ps1"), ["-UserRoot", layout.UserRoot], layout.SourceRoot);
+            code = await launch.RunAsync(layout.Tool("launch.ps1"), ["-UserRoot", layout.UserRoot, .. SyncArguments()], layout.SourceRoot);
         }
         catch (Exception ex)
         {

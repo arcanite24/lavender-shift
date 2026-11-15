@@ -26,6 +26,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/diagnostics.cpp
     src/stall_dump.cpp
     src/save_backups.cpp
+    src/save_sync.cpp
     src/fixed_steps.cpp
     src/frame_rate.cpp
     src/cheats.cpp
@@ -151,3 +152,13 @@ add_executable(lavender_shift_archive_extract EXCLUDE_FROM_ALL
 )
 target_include_directories(lavender_shift_archive_extract PRIVATE src)
 target_link_libraries(lavender_shift_archive_extract PRIVATE rex::runtime)
+
+# Save sync's two-device test (docs/SAVE_SYNC.md), built on its own.
+add_executable(lavender_shift_save_sync_test EXCLUDE_FROM_ALL
+    tools/save_sync_test.cpp
+    src/save_sync.cpp
+    src/save_backups.cpp
+    src/config/host_config.cpp
+)
+target_include_directories(lavender_shift_save_sync_test PRIVATE src)
+target_link_libraries(lavender_shift_save_sync_test PRIVATE rex::runtime)

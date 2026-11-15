@@ -41,5 +41,11 @@ $arguments = @("--game_data_root=$disc", "--update_data_root=$update",
     "--user_data_root=$UserRoot", '--xex_apply_patches=true', '--gpu_backend=vulkan',
     '--xam_xstudio_request_unsupported=true', '--gpu_read_pointer_publish_dwords=1024') +
     $GameArguments
+# Start-Process joins the arguments with spaces as they are, so one with a
+# space (a sync folder in "Google Drive") is quoted for the game's command
+# line parser: backslashes before the closing quote are doubled.
+$arguments = @($arguments | ForEach-Object {
+    if ($_ -match '[\s"]') { '"' + ($_ -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"' } else { $_ }
+})
 Write-Host "$exe $($arguments -join ' ')"
 Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory (Split-Path $exe) -PassThru

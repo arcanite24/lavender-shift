@@ -72,6 +72,21 @@ It runs at 60 fps on a Snapdragon 8 Gen 2 handheld.
 
 More detail is in the [Android guide](docs/ANDROID.md).
 
+## Syncing your save between devices
+
+If you use a sync app such as Syncthing, Dropbox or OneDrive, your save
+and achievements can follow you between your PC and your Android device.
+
+- **On the PC:** click **Save sync** at the bottom of the launcher and
+  choose a folder your sync app shares.
+- **On Android:** have your sync app (Syncthing-Fork, for example) share
+  `Android/media/studio.deimos.lavendershift/sync` with that same folder.
+
+A newer save from another device loads the next time you start the game.
+If you played on both devices without syncing in between, the game asks
+which save to keep (**F6**, **Profile**, **Save sync**), and the save you
+don't keep goes to **Save backups**. More in [docs/SAVE_SYNC.md](docs/SAVE_SYNC.md).
+
 ## Questions
 
 **Is the game included?** No. You need your own disc image and title

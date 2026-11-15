@@ -4,12 +4,18 @@
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
 namespace lavender_shift {
+
+// A profile's folder in the user folder: 16 hex digits, not the all-zero
+// folder that holds installed content. The saves are these folders.
+bool IsSaveFolder(const std::filesystem::path& name);
 
 // In-game save backups, Pinyon Shift's (docs/PINYON_PARITY.md LP-1.8). The
 // saves are the profile folders in the user folder, one per XUID
@@ -35,6 +41,13 @@ class SaveBackups {
               size_t keep = 10);
   ~SaveBackups();
 
+  // Called on the backup thread after each new snapshot, with the snapshot's
+  // copy of the user folder (the saves as they were when still). Set before
+  // Start.
+  void SetOnSnapshot(std::function<void(const std::filesystem::path& user_copy)> on_snapshot) {
+    on_snapshot_ = std::move(on_snapshot);
+  }
+
   void Start();
   void Stop();
 
@@ -48,6 +61,15 @@ class SaveBackups {
   // At startup, before the title runs: applies a scheduled restore.
   static void ApplyPendingRestore(const std::filesystem::path& user_root,
                                   const std::filesystem::path& backup_root);
+  // Puts the saves of backup `slot` in place now, after backing up the
+  // current ones; only while the title is not running.
+  static bool RestoreSlot(const std::filesystem::path& user_root,
+                          const std::filesystem::path& backup_root, const std::string& slot);
+  // Copies `user_copy`'s saves into a new slot named after the time and
+  // `reason`; returns the slot's name.
+  static std::optional<std::string> AddSlot(const std::filesystem::path& user_copy,
+                                            const std::filesystem::path& backup_root,
+                                            const std::string& reason);
 
  private:
   struct Signature {
@@ -56,14 +78,18 @@ class SaveBackups {
     bool operator==(const Signature&) const = default;
   };
   static Signature Scan(const std::filesystem::path& root);
-  static bool Snapshot(const std::filesystem::path& user_root,
-                       const std::filesystem::path& backup_root, const std::string& reason);
+  // The new slot's copy of the user folder, or nullopt.
+  static std::optional<std::filesystem::path> Snapshot(const std::filesystem::path& user_root,
+                                                       const std::filesystem::path& backup_root,
+                                                       const std::string& reason);
+  bool TakeSnapshot(const std::string& reason);
   void Prune() const;
   void Run();
 
   std::filesystem::path user_root_;
   std::filesystem::path backup_root_;
   size_t keep_;
+  std::function<void(const std::filesystem::path&)> on_snapshot_;
   std::thread thread_;
   std::mutex mutex_;
   std::condition_variable wake_;

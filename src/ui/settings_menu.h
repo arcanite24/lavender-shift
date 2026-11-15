@@ -15,6 +15,7 @@
 
 namespace lavender_shift {
 class SaveBackups;
+class SaveSync;
 }
 
 namespace lavender_shift::ui {
@@ -32,6 +33,8 @@ struct SettingsServices {
   std::function<void()> quit;
   // The save backups; no SAVE BACKUPS row without them.
   SaveBackups* save_backups = nullptr;
+  // Save sync; no SAVE SYNC row without it.
+  SaveSync* save_sync = nullptr;
 };
 
 // The in-game settings screen: DISPLAY and GRAPHICS pages over the host UI.

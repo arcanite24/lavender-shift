@@ -299,6 +299,9 @@
                     <Button x:Name="OpenAndroidButton" Content="Android" Style="{StaticResource LinkButton}"
                             Visibility="Collapsed" Click="OpenAndroid_Click"
                             AutomationProperties.HelpText="Build the game for an Android device and install it there."/>
+                    <Button x:Name="OpenSyncButton" Content="Save sync" Style="{StaticResource LinkButton}"
+                            Click="OpenSync_Click"
+                            AutomationProperties.HelpText="Share your save with your other devices through a folder a sync app such as Syncthing or Dropbox keeps in step."/>
                     <Button x:Name="OpenSavesButton" Content="Saves" Style="{StaticResource LinkButton}"
                             Click="OpenSaves_Click" AutomationProperties.HelpText="Open the folder with your saves and settings."/>
                     <Button x:Name="OpenLogsButton" Content="Logs" Style="{StaticResource LinkButton}"
