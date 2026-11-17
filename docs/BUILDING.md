@@ -18,7 +18,20 @@ It provisions the tools pinned in `config/release-toolchain.json` into
 (`tools/lavender_setup.py`, which accepts only the supported files),
 generates the translation and builds (`tools/build.ps1`). Each step skips
 work already done, so after code changes `.\tools\build.ps1` alone is
-enough. A failure writes `.local/logs/setup-error.json`. Never delete
+enough. A failure writes `.local/logs/setup-error.json`.
+
+`out/build/win-amd64-release/lavender_shift.exe` also starts with no
+arguments (`src/install_paths.cpp`): when no `--game_data_root` is given it
+uses `.local/game/disc` and `.local/game/update` in the source folder above
+it, and `.local/user` for a checkout, or `user` beside the source folder
+in a release (where `lavender-shift-source.zip` is). It also sets the flags
+`launch.ps1` passes, unless the command line sets them. Only one game runs
+per user folder. `launch.ps1` still prepares the ahead-of-time pipelines
+first, which a bare start skips (setup prepares them).
+
+The launcher starts that exe directly. Once setup is done, opening the
+launcher starts the game and closes; hold Shift or pass `--launcher` to get
+the window. Never delete
 `.local` recursively if it holds junctions.
 
 ## Releases and codegen

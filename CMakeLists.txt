@@ -29,6 +29,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/save_sync.cpp
     src/fixed_steps.cpp
     src/frame_rate.cpp
+    src/install_paths.cpp
     src/cheats.cpp
     src/gamma_hooks.cpp
     src/guest_native/guest_native.cpp

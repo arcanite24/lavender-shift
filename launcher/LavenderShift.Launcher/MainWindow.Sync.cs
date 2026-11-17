@@ -7,7 +7,7 @@ namespace LavenderShift.Launcher;
 
 /// <summary>Save sync from the launcher (docs/SAVE_SYNC.md): the player picks
 /// a folder a sync app (Syncthing, Dropbox, OneDrive...) shares between
-/// devices, and Play passes it to the game, which does the syncing.</summary>
+/// devices; it goes in the game's settings file, and the game does the syncing.</summary>
 public partial class MainWindow
 {
     private void OpenSync_Click(object sender, RoutedEventArgs e)
@@ -54,6 +54,8 @@ public partial class MainWindow
         if (layout is null) return;
         settings.SyncFolder = folder;
         settings.Save(layout.SettingsPath);
+        // The game reads it from its settings file however it is started.
+        GameStarter.WriteSyncSetting(layout, folder);
         OpenSyncButton.Content = folder is null ? "Save sync" : "Save sync: on";
         if (mode == Mode.Ready && !editingFiles) SetSubhead(ReadySubhead());
     }
@@ -65,10 +67,6 @@ public partial class MainWindow
         if (layout is null || settings.SyncFolder is null) return ready;
         return ready + " · " + SaveSyncStatus.Describe(settings.SyncFolder, layout.UserRoot);
     }
-
-    /// <summary>The game's arguments for save sync, for launch.ps1.</summary>
-    private string[] SyncArguments() =>
-        settings.SyncFolder is null ? [] : ["-GameArguments", "--lavender_sync_folder=" + settings.SyncFolder];
 
     private static bool IsInside(string path, string folder)
     {

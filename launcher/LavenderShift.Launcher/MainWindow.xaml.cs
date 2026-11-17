@@ -392,37 +392,30 @@ public partial class MainWindow : Window
         HideFailure();
         PrimaryButton.IsEnabled = false;
         PrimaryButtonText.Text = "Starting…";
-        var output = new StringBuilder();
-        var launch = new ScriptRunner();
-        launch.Output += line => { lock (output) output.AppendLine(line); };
-        int code;
         try
         {
-            code = await launch.RunAsync(layout.Tool("launch.ps1"), ["-UserRoot", layout.UserRoot, .. SyncArguments()], layout.SourceRoot);
+            // Setup prepares the ahead-of-time pipelines; a checkout whose
+            // catalog changed since gets them again here.
+            if (!GameStarter.ShadersCurrent(layout))
+            {
+                var output = new StringBuilder();
+                var prepare = new ScriptRunner();
+                prepare.Output += line => { lock (output) output.AppendLine(line); };
+                await prepare.RunAsync(layout.Tool("prepare_shaders.ps1"), ["-UserRoot", layout.UserRoot], layout.SourceRoot);
+                AppendLog(output.ToString().TrimEnd());
+            }
+            using var game = GameStarter.Start(layout, settings.SyncFolder);
         }
         catch (Exception ex)
         {
             SetMode(Mode.Ready);
-            ShowFailure("The game could not be started: " + ex.Message, null, null);
-            return;
-        }
-        AppendLog(output.ToString().TrimEnd());
-        if (code != 0)
-        {
-            var lines = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            SetMode(Mode.Ready);
-            ShowFailure("The game could not be started.", "Run setup again if this keeps happening.", lines.TakeLast(6).ToList());
+            ShowFailure("The game could not be started: " + ex.Message, "Run setup again if this keeps happening.", null);
             return;
         }
         SetMode(Mode.Playing);
     }
 
-    private static bool GameIsRunning()
-    {
-        var processes = Process.GetProcessesByName("lavender_shift");
-        foreach (var process in processes) process.Dispose();
-        return processes.Length > 0;
-    }
+    private static bool GameIsRunning() => GameStarter.GameIsRunning();
 
     private void ShowFailure(string message, string? hint, IReadOnlyList<string>? excerpt)
     {

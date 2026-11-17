@@ -138,11 +138,12 @@ the time it last shared. A newer or different save offers:
 
 - **PC launcher**: **Save sync** in the footer opens a menu to choose a folder,
   open it, or turn sync off. A folder inside the install is refused. The choice
-  is saved in `launcher.json` as `SyncFolder`, and Play passes it through
-  `launch.ps1 -GameArguments --lavender_sync_folder=<folder>`.
-  `launch.ps1` now quotes arguments that contain spaces, such as folders under
-  `Google Drive` or `OneDrive - …`. The line under Play shows the status from
-  the manifests (`SaveSyncStatus.cs`).
+  is saved in `launcher.json` as `SyncFolder` and written to the game's
+  `user\config\lavender_shift.toml` as `lavender_sync_folder` (with forward
+  slashes; empty when off), so the game syncs however it is started
+  (`GameStarter.cs`). Before the game's first run that file doesn't exist yet,
+  and the launcher passes `--lavender_sync_folder=<folder>` instead of creating
+  it. The line under Play shows the status from the manifests (`SaveSyncStatus.cs`).
 - **Without the launcher**: `--lavender_sync_folder=<folder>` (and
   optionally `--lavender_device_name=<name>`) on the command line, or the
   same names in `user\config\lavender_shift.toml`. The game reads them from the

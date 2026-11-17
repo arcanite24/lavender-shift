@@ -45,6 +45,7 @@
 #include "ui/xam_dialogs.h"
 #include "guest_native/guest_native.h"
 #include "frame_rate.h"
+#include "install_paths.h"
 
 LavenderShiftApp::~LavenderShiftApp() = default;
 
@@ -192,8 +193,19 @@ void LavenderShiftApp::OnPreSetup(rex::RuntimeConfig& config) {
 // root (a test copy included) keeps its own. The SDK loads the file before
 // anything reads a setting; the settings menu edits it in place.
 void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
+  // Started on its own, with no folders named: the ones setup put beside it.
+  const bool found_install = lavender_shift::install::ResolveDefaults(paths);
+  if (!lavender_shift::install::ClaimUserRoot(paths.user_data_root)) {
+    lavender_shift::install::ShowAlreadyRunning();
+    std::exit(0);
+  }
   // Crash reports, stall dumps and session events (LP-1.10) from here on.
   lavender_shift::diagnostics::Initialize(paths.user_data_root);
+  if (found_install) {
+    lavender_shift::diagnostics::RecordEvent(
+        "install.found", {{"game", rex::path_to_utf8(paths.game_data_root)},
+                          {"user", rex::path_to_utf8(paths.user_data_root)}});
+  }
   paths.config_path = paths.user_data_root / "config" / "lavender_shift.toml";
   // A restore chosen on the PROFILE page, before the title reads its saves.
   lavender_shift::SaveBackups::ApplyPendingRestore(paths.user_data_root,

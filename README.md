@@ -43,6 +43,12 @@
    it carries on where it left off.
 6. **Press Play.** Press **F6** in game for the settings.
 
+From then on, opening `LavenderShiftLauncher.exe` starts the game straight
+away. Hold **Shift** while opening it to get the launcher instead (for save
+sync, Android or other game files). The game itself,
+`source\out\build\win-amd64-release\lavender_shift.exe`, also starts on its
+own, so a shortcut to it works too.
+
 Your saves and settings are kept in the `user` folder next to the
 launcher.
 
