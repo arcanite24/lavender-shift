@@ -238,7 +238,8 @@ std::string Stamp(std::initializer_list<std::filesystem::path> sources) {
     std::error_code error;
     const auto size = std::filesystem::file_size(source, error);
     const auto time = std::filesystem::last_write_time(source, error).time_since_epoch().count();
-    stamp += " " + std::to_string(size) + " " + std::to_string(time);
+    // libc++ (Android) counts file times in __int128, which to_string lacks.
+    stamp += " " + std::to_string(size) + " " + std::to_string(static_cast<long long>(time));
   }
   return stamp;
 }

@@ -733,7 +733,16 @@ def push_data(args: argparse.Namespace) -> int:
     adb(tools, args, "shell", "mkdir", "-p", f"{remote}/game/disc", f"{remote}/game/update",
         f"{remote}/user")
     for folder in ("disc", "update"):
-        adb(tools, args, "push", "--sync", f"{game / folder}{os.sep}.", f"{remote}/game/{folder}")
+        # adbd may not create folders under Android/data on internal storage
+        # ("remote secure_mkdirs failed: Operation not permitted") while the
+        # shell may, so the shell makes the tree first and adb pushes into it.
+        folders = sorted(f"{remote}/game/{folder}/{path.relative_to(game / folder).as_posix()}"
+                         for path in (game / folder).rglob("*") if path.is_dir())
+        for start in range(0, len(folders), 64):
+            adb(tools, args, "shell", "mkdir -p " + " ".join(f"'{path}'" for path in
+                                                          folders[start:start + 64]))
+        for entry in sorted((game / folder).iterdir()):
+            adb(tools, args, "push", "--sync", entry, f"{remote}/game/{folder}/")
     pipelines = (args.user_root or ROOT / ".local" / "user") / "cache" / "shaders" / "shareable" \
         / "4D530AA4.fbo.aot.xpso"
     if pipelines.is_file():
