@@ -21,6 +21,10 @@ REXCVAR_DEFINE_UINT32(lavender_guest_native_verify, 0, "Lavender Shift",
                       "Every Nth call of a native guest replacement also runs the original "
                       "and compares results, keeping the original's (0 = off, 1 = every call)")
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
+REXCVAR_DEFINE_UINT32(lavender_guest_native_summary_seconds, 0, "Lavender Shift",
+                      "Write every native guest replacement's call counts to the session log "
+                      "every N seconds while they run (0 = only at verify and shutdown)")
+    .lifecycle(rex::cvar::Lifecycle::kHotReload);
 
 namespace lavender_shift::guest_native {
 namespace {
@@ -218,11 +222,23 @@ size_t CheckAllGuestCode(uint8_t* base) {
 }
 
 void Dispatch(Replacement& replacement, PPCFunc* original, PPCContext& ctx, uint8_t* base) {
-  if (!REXCVAR_GET(lavender_guest_native) || !replacement.enabled() ||
-      !CheckGuestCode(replacement, base)) {
+  // The code check comes first so a switched-off replacement is still
+  // listed, with its original calls, in the summary.
+  if (!REXCVAR_GET(lavender_guest_native) || !CheckGuestCode(replacement, base) ||
+      !replacement.enabled()) {
     replacement.stats.original.fetch_add(1, std::memory_order_relaxed);
     original(ctx, base);
     return;
+  }
+  if (const uint32_t every = REXCVAR_GET(lavender_guest_native_summary_seconds)) {
+    static std::atomic<int64_t> last_periodic{0};
+    const int64_t now =
+        std::chrono::duration_cast<std::chrono::seconds>(Clock::now().time_since_epoch()).count();
+    int64_t last = last_periodic.load(std::memory_order_relaxed);
+    if (now - last >= int64_t(every) && last_periodic.compare_exchange_strong(last, now) &&
+        last != 0) {
+      RecordSummary();
+    }
   }
   const uint32_t verify_every = REXCVAR_GET(lavender_guest_native_verify);
   if (verify_every) {

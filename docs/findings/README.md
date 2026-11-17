@@ -28,6 +28,6 @@ Named addresses and offsets that code uses also go in
 
 | File | Covers |
 | --- | --- |
-| [rendering.toml](rendering.toml) | Post effects, render scenarios, camera, HUD |
+| [rendering.toml](rendering.toml) | Post effects, render scenarios, camera, HUD, loading screens, scene culling |
 | [systems.toml](systems.toml) | Launch options, world, cars, events, time of day, pause menu and system UI |
 | [threads.toml](threads.toml) | Simulation step, GPU waits, pacing |

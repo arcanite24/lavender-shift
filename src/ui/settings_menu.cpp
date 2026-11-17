@@ -322,6 +322,25 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     rates.push_back({"UNLOCKED", {{"lavender_frame_rate", "\"unlocked\""}}});
     rows.push_back(Setting("FRAME RATE", std::move(rates)));
   }
+  // Pinyon's UP-8.2: a generated frame after each real one. While it is on
+  // ShiftGlue holds the render rate at half the refresh, under FRAME RATE,
+  // so a 120 Hz display shows 60 real frames and 60 generated ones. Windows
+  // only, where FSR 3, DLSS and LSFG have run.
+#if defined(_WIN32)
+  if (services_.frame_generators) {
+    std::vector<Choice> generators = {{"OFF", {{"present_frame_generation", "\"off\""}}}};
+    const std::string saved = Unquote(Live("present_frame_generation"));
+    for (const rex::ui::UpscalerInfo& info : services_.frame_generators()) {
+      if (info.available || SameValue(saved, info.id)) {
+        generators.push_back({SameValue(info.id, "fsr3") ? std::string("FSR 3") : Upper(info.id),
+                              {{"present_frame_generation", "\"" + info.id + "\""}}});
+      }
+    }
+    if (generators.size() > 1) {
+      rows.push_back(Setting("FRAME GENERATION", std::move(generators)));
+    }
+  }
+#endif
   {
     std::vector<Choice> scaling = {{"BILINEAR", {{"present_effect", "\"bilinear\""}}},
                                    {"CAS", {{"present_effect", "\"cas\""}}},
@@ -397,6 +416,18 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     }
     if (SameValue(Live("present_hdr"), "true") && !rex::ui::vulkan::GetHdrOutputState().offered) {
       return std::string("HDR NEEDS HDR TURNED ON FOR THIS DISPLAY IN WINDOWS");
+    }
+    if (!SameValue(Unquote(Live("present_frame_generation")), "off")) {
+      // ShiftGlue holds the game at half the guest video mode's refresh
+      // (video_mode_refresh_rate, the display's: frame_rate.cpp publishes it
+      // before boot) while it generates frames. Below about 50
+      // real frames a second the generated ones show their errors and the
+      // input lag grows (AMD's and NVIDIA's guidance).
+      const double guest_refresh = std::atof(Live("video_mode_refresh_rate").c_str());
+      if (guest_refresh > 0.0) {
+        return "FRAME GENERATION: THE GAME RENDERS AT MOST " +
+               std::to_string(uint32_t(guest_refresh * 0.5 + 0.5)) + " FPS";
+      }
     }
     return ResolutionLine();
   };
@@ -725,6 +756,11 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
                           {"FXAA", {{"swap_post_effect", "\"fxaa\""}}},
                           {"FXAA EXTREME", {{"swap_post_effect", "\"fxaa_extreme\""}}}}));
   rows.push_back(Toggle("AA ON THE HUD", "swap_post_effect_scene_only", true));
+  // How often the HUD and the rest of the interface update
+  // (src/guest_native/ui_update.cpp): HALF runs the interface's update on
+  // every other frame; the minimap still draws every frame.
+  rows.push_back(Setting("HUD UPDATES", {{"FULL", {{"lavender_ui_update_interval", "1"}}},
+                                         {"HALF", {{"lavender_ui_update_interval", "2"}}}}));
   // FH2 has no ambient occlusion pass; ShiftGlue adds one at swap from the
   // scene depth (SR-3 in docs/SHADER_REPLACEMENT_RESEARCH.md).
   rows.push_back(Setting("AMBIENT OCCLUSION",

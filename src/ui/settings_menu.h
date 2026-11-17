@@ -29,6 +29,8 @@ struct SettingsServices {
   // The output scalers the presenter has; temporal ones say whether their
   // runtime loaded.
   std::function<std::vector<rex::ui::UpscalerInfo>()> upscalers;
+  // The presenter's frame generators; no FRAME GENERATION row without one.
+  std::function<std::vector<rex::ui::UpscalerInfo>()> frame_generators;
   // Closes the window the way its close button does; no row without it.
   std::function<void()> quit;
   // The save backups; no SAVE BACKUPS row without them.

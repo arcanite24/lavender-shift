@@ -123,6 +123,10 @@ void TurnOnWindowsHdr(void* native_window) {
 // Stage 0 renders through ShiftGlue's Xenos (PM4) plugin, rexgpu-fh1, unless
 // --gpu_plugin names another one.
 void LavenderShiftApp::OnPreSetup(rex::RuntimeConfig& config) {
+  // Before the guest reads its video mode (frame generation's render cap is
+  // half of it).
+  lavender_shift::frame_rate::PublishRefreshRate(window() ? window()->GetNativeWindowHandle()
+                                                          : nullptr);
   // WINDOWS HDR: before the swapchain is made, so the presenter is offered
   // scRGB. A display a crashed run left in HDR is turned back off first. The
   // list lives in the player's own folder, also while a modded profile plays.
@@ -312,6 +316,14 @@ void LavenderShiftApp::OnPostSetup() {
   if (REXCVAR_GET(fh1_frame_inspector) || REXCVAR_GET(fh1_frame_inspector_replay)) {
     ToggleFrameInspector();
   }
+  // The pointer hides over the game window after a few idle seconds and
+  // comes back when the mouse moves (Pinyon's #1076). Mouse capture hides
+  // it and then restores this.
+  if (window()) {
+    window()->app_context().CallInUIThreadDeferred([this] {
+      if (window()) window()->SetCursorVisibility(rex::ui::Window::CursorVisibility::kAutoHidden);
+    });
+  }
 #endif
   if (config_created_) ApplyFirstRunDefaults();
   MountMods();
@@ -471,6 +483,18 @@ void LavenderShiftApp::OnPostSetup() {
       }).detach();
     }
   }
+  // LAVENDER_SHIFT_SETTINGS_SELF_TEST=<seconds>: open the settings menu, as
+  // F6 would, for scripted screenshots of its pages.
+  if (const char* delay = std::getenv("LAVENDER_SHIFT_SETTINGS_SELF_TEST")) {
+    const int seconds = std::max(1, std::atoi(delay));
+    std::thread([this, seconds] {
+      std::this_thread::sleep_for(std::chrono::seconds(seconds));
+      if (!window()) return;
+      window()->app_context().CallInUIThreadDeferred([this] {
+        if (!host_ui_ || !host_ui_->is_open()) ToggleSettingsMenu();
+      });
+    }).detach();
+  }
   // The runtime's components may have replaced the crash filter by now.
   lavender_shift::diagnostics::RefreshCrashReporter();
 }
@@ -602,6 +626,11 @@ void LavenderShiftApp::ToggleSettingsMenu() {
     auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
     auto* presenter = graphics ? graphics->presenter() : nullptr;
     return presenter ? presenter->GetUpscalers() : rex::ui::GetSpatialUpscalerInfos();
+  };
+  services.frame_generators = [this]() -> std::vector<rex::ui::UpscalerInfo> {
+    auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
+    auto* presenter = graphics ? graphics->presenter() : nullptr;
+    return presenter ? presenter->GetFrameGenerators() : std::vector<rex::ui::UpscalerInfo>{};
   };
   host_ui_->Open(lavender_shift::ui::CreateSettingsMenu(*host_ui_, *host_config_, services));
 }

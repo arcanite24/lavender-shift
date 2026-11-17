@@ -158,3 +158,34 @@ what = """As in FH1, the gamma ramp is rebuilt from the same settings and sent t
 how = """Mapper (aligned, every hook site at FH1's offset), body comparison; hook counts and timings with lavender_gamma_log, both switches off and on."""
 confidence = """confirmed"""
 source = """src/gamma_hooks.cpp; docs/PINYON_PARITY.md LP-4.3"""
+
+[[finding]]
+group = """Loading screens"""
+name = """loading screen minimum time on screen"""
+v2 = """renderer show method sub_8261C510 (132 bytes); minimum float at renderer +2072, deadline double at renderer +2088 (-1.0 = none)"""
+fh1_v4 = """FH1 base sub_825A2CB8 (exact)"""
+what = """Showing the tip loading screen sets a deadline: the render stopwatch plus a minimum time on screen. The main thread's load step yields until the render frame clears it, so a load that ends early still waits. Clearing the deadline after the show call lets the screen leave when loading is done; it still appears and fades."""
+how = """Pinyon's address mapper (FH1 base against TU v2, exact) and the guest-native hash guard; in game the wrapper logged `loading_screen.minimum_skipped` with 1.00 s on the title-to-free-roam load. That load measured 8.33 s with the minimum kept and 8.36 s without, so the load itself outlasts it there; events (3 s in FH1) are not reachable yet (LP-0.4)."""
+confidence = """confirmed"""
+source = """src/guest_native/loading_screen.cpp"""
+
+[[finding]]
+group = """HUD"""
+name = """user interface update and custom renderer submit"""
+v2 = """CUserInterface4 update sub_83000358 (600 bytes, frame time in f1); CCustomRendererCtrl submit sub_829435A0 (120 bytes)"""
+fh1_v4 = """FH1 base sub_82E71F90 (context, same 150 instructions after masking), sub_827DAA40 (aligned, same 30 instructions)"""
+what = """The simulation thread updates the scene manager, the custom controls (minimap renderer and layers, HUD stackers) and the HUD once a frame through the update. The custom renderer controls submit their drawing from inside it every frame; a frame without that submission shows garbage where the minimap goes, so a skipped update must resubmit them."""
+how = """Mapper, masked instruction comparison, and running the update one frame in two (`lavender_ui_update_interval=2`): 1,856 of 4,285 updates skipped in free roam with the minimap drawn correctly."""
+confidence = """confirmed"""
+source = """src/guest_native/ui_update.cpp"""
+
+[[finding]]
+group = """Scene culling"""
+name = """per-draw pass culling"""
+v2 = """pass cull sub_82450288 (2,884 bytes; r3 renderer, r4 draw item, r5 pass list); buckets at [renderer+13844] + (pass*5 + bucket)*16; procedural-model cull sub_8244F030 (1,228 bytes); model asset skip sub_82446498; bucket push sub_824516C0; push recorder sub_82451660; mark sub_8244EFF0; probe setter sub_824517C8; cascade depth range sub_82F6A310; probe select sub_8244FBF8; model resolve sub_8244F500; view settings holder 0x83600118; cascade plane count 0x833FDF7C; scene walk sub_82450ED0"""
+fh1_v4 = """FH1 base sub_824400B0 (pass cull), sub_8243EE58 (procedural models); the rest mapped from FH1 base"""
+what = """For each mesh and each pass in its list (shadow cascades 0-5, light passes 6-8, views 9-14, 15 and up, 24 the light-shadow pass) the renderer tests flags, bounding sphere and box, frustum planes, a distance LOD choice and the cascades' extents, and appends 20-byte draw records to the pass's buckets. FH2 differs from FH1 in one rule: the item's flag bit 24 is required only for passes above 5, so the shadow cascades take every item (FH1 also required it there). Two registers are swapped; the asset walk's counter moved from +1204 to +1220."""
+how = """Mapper and masked instruction comparison of every function; Pinyon's native version run in verify mode (`lavender_guest_native_verify`) found 3,849 mismatches in 430,785 calls, all missing cascade pushes, which led to the bit-24 rule. After the fix: no mismatch in 505,911 pass-cull and 355,778 procedural-model calls."""
+confidence = """confirmed"""
+note = """Native culling is correct but cost the desktop process CPU (5.00 against 4.57 cores at the same draw rate), so it stays off. LOD distance scale 2 cut draws 9 % and showed coarser buildings."""
+source = """src/guest_native/scene_cull.cpp"""

@@ -26,6 +26,12 @@ uses in place of building them.
   [xwin](https://github.com/Jake-Shadle/xwin)
 - AMD FidelityFX and NVIDIA DLSS runtimes, fetched by ShiftGlue's pinned,
   hashed modules when the game is configured
+- LSFG frame generation, which runs only from the player's own Lossless
+  Scaling install and only when `present_lsfg_dll` is set, is built by
+  ShiftGlue from [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk) 1.0.0's
+  `framegen` (MIT) and [DXVK](https://github.com/doitsujin/dxvk) 2.6.2's
+  DXBC compiler (zlib License), in `thirdparty/lsfg` of its source tree.
+  No Lossless Scaling code or shaders are included
 - For the Android build: the [Android NDK and platform-tools](https://developer.android.com/studio/terms)
   from Google (the player accepts the Android SDK licence in the launcher
   first; `config/android-toolchain.json`), and

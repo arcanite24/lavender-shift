@@ -272,3 +272,14 @@ what = """FH2 finds each archive's central directory from its zipmanifest.xml li
 how = """camera.zip rebuilt with CameraPhysics.xml stored (262,598 bytes against 45,565) passed the size and block checks but the title stopped at the legal screen, also with the stock XML stored; with the data offsets and the manifest line rewritten (and the manifest served beside it) free roam loaded."""
 confidence = """confirmed"""
 source = """src/mods/immersive_camera.cpp"""
+
+[[finding]]
+group = """Audio"""
+name = """audio thread's deferred-call thunks and drain rate"""
+v2 = """thunks sub_82D404E8 (vtable +88, car audio model update sub_82D4ED20, time at payload +4), sub_824F81E0 (+44, audio engine update sub_82516270, time +4 and flag +8), sub_824F8310 (+52, sub_82503320), sub_824F8488 (+64, sub_824FF5E0)"""
+fh1_v4 = """FH1 base 0x82BB9CD8 (exact), 0x8249BE98 (byte-identical), 0x8249BFC8 (exact), 0x8249C130 (exact)"""
+what = """The audio thread drains a list of deferred calls the game thread posts; each entry's thunk makes a virtual call with a copy of the arguments. Unlike FH1, which drains once per rendered frame, FH2 drains about 40-56 times a second whatever the frame rate (about 40 at 50 fps, 49-56 at 140 fps), and the timed updates get only the last frame's time."""
+how = """Mapper and masked comparison; the gates' log (`lavender_audio_update_log`) timed the engine update's calls in host time over free-roam drives at several frame rates."""
+confidence = """confirmed"""
+note = """Because the drain rate is already near the console's, skipping calls saves almost nothing: no measurable process CPU change (4.08 against 4.04 cores)."""
+source = """src/guest_native/audio_update.cpp"""

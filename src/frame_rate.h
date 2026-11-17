@@ -14,4 +14,9 @@ void Apply();
 // The refresh rate of the window's monitor, 24 to 240 Hz (60 if unknown).
 uint32_t DisplayRefreshRate();
 
+// Before boot: video_mode_refresh_rate (the guest video mode's refresh, which
+// ShiftGlue halves for the game while it generates frames) follows the
+// display, unless the command line set it. Pinyon Shift does the same.
+void PublishRefreshRate(void* native_window);
+
 }  // namespace lavender_shift::frame_rate

@@ -25,9 +25,17 @@ direct_calls_bypass_thunk = true
 # (src/guest_native/lzx_decoder.cpp); FMOD's output and the XAudio2
 # methods it uses, the ParamEQ read thunk and the voice-chat tick
 # (src/guest_native/fmod_output.cpp, fmod_dsp.cpp, voice_chat.cpp).
+# 0x8261C510: the loading screen's show method (loading_screen.cpp); the
+# four audio command thunks (audio_update.cpp); the interface update and
+# the custom renderer submit (ui_update.cpp); the pass and procedural-model
+# culling, the model asset walk and the helpers their verify mode records
+# (scene_cull.cpp).
 host_overridden_functions = [0x82B72EA8, 0x82448D90, 0x831DDA78,
     0x8319A498, 0x8319A310, 0x83199FD0, 0x8319A128, 0x8319FF18, 0x83198B38,
-    0x83191FA8, 0x83192F58, 0x831999C8, 0x831999A0, 0x830B1B30, 0x8246D418]
+    0x83191FA8, 0x83192F58, 0x831999C8, 0x831999A0, 0x830B1B30, 0x8246D418,
+    0x8261C510, 0x82D404E8, 0x824F81E0, 0x824F8310, 0x824F8488,
+    0x83000358, 0x829435A0, 0x82450288, 0x82446498, 0x82451660, 0x8244F030,
+    0x824516C0, 0x8244EFF0, 0x824517C8, 0x82F6A310]
 fold_rodata_loads = true
 host_local_register_saves = true
 host_local_lr = true

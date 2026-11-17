@@ -26,7 +26,34 @@
 #include "stall_dump.h"
 #include "trainer.h"
 #include "wide_view.h"
+#include "diagnostics.h"
 #include "ui/music.h"
+
+REXCVAR_DEFINE_BOOL(lavender_simulation_log, false, "Lavender Shift",
+                    "Log the simulation's steps and simulated seconds per host second every "
+                    "10 s")
+    .lifecycle(rex::cvar::Lifecycle::kHotReload);
+
+namespace {
+// lavender_simulation_log: steps and simulated time against host time.
+void LogSimulationRate(double seconds) {
+  static uint64_t steps = 0;
+  static double simulated = 0.0;
+  static std::chrono::steady_clock::time_point start{};
+  const auto now = std::chrono::steady_clock::now();
+  if (start == std::chrono::steady_clock::time_point{}) start = now;
+  ++steps;
+  simulated += seconds;
+  const double host = std::chrono::duration<double>(now - start).count();
+  if (host < 10.0) return;
+  lavender_shift::diagnostics::RecordEvent(
+      "simulation.rate", {{"steps_per_second", std::to_string(double(steps) / host)},
+                          {"simulated_per_second", std::to_string(simulated / host)}});
+  steps = 0;
+  simulated = 0.0;
+  start = now;
+}
+}  // namespace
 
 void LavenderObserveSimulationDelta(PPCRegister& f31) {
   const double seconds = f31.f64;
@@ -34,6 +61,7 @@ void LavenderObserveSimulationDelta(PPCRegister& f31) {
     PROFILE_SIMULATION_DELTA_INVALID();
     return;
   }
+  if (REXCVAR_GET(lavender_simulation_log)) LogSimulationRate(seconds);
   PROFILE_SIMULATION_TICK();
   PROFILE_SIMULATION_TIME_NS(int64_t(std::llround(seconds * 1e9)));
   lavender_shift::graphics::UpdateHud();

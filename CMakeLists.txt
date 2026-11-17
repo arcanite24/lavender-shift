@@ -37,6 +37,10 @@ set(LAVENDER_SHIFT_SOURCES
     src/guest_native/fmod_output.cpp
     src/guest_native/fmod_dsp.cpp
     src/guest_native/voice_chat.cpp
+    src/guest_native/loading_screen.cpp
+    src/guest_native/audio_update.cpp
+    src/guest_native/ui_update.cpp
+    src/guest_native/scene_cull.cpp
     src/ring_wait.cpp
     src/simulation_hooks.cpp
     src/graphics_hooks.cpp

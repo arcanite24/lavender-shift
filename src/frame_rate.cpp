@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <string>
+#include <utility>
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -65,6 +66,18 @@ uint32_t DisplayRefreshRate() {
 #endif
   // Elsewhere (Android) the display's rate is not read yet: 60.
   return kFallbackRefresh;
+}
+
+void PublishRefreshRate(void* native_window) {
+  if (rex::cvar::GetFlagSource("video_mode_refresh_rate") == rex::cvar::Source::kCommandLine) {
+    return;
+  }
+  void* const previous = std::exchange(g_window, native_window);
+  const uint32_t refresh = DisplayRefreshRate();
+  g_window = previous;
+  // Through the registry: each ShiftGlue module reads the one it holds.
+  rex::cvar::SetFlagByName("video_mode_refresh_rate", std::to_string(refresh));
+  diagnostics::RecordEvent("display.refresh.detected", {{"hz", std::to_string(refresh)}});
 }
 
 void Apply() {
