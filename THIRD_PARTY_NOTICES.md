@@ -27,7 +27,8 @@ uses in place of building them.
 - AMD FidelityFX and NVIDIA DLSS runtimes, fetched by ShiftGlue's pinned,
   hashed modules when the game is configured
 - LSFG frame generation, which runs only from the player's own Lossless
-  Scaling install and only when `present_lsfg_dll` is set, is built by
+  Scaling install (`present_lsfg_dll`, or Lossless Scaling in their Steam
+  libraries), is built by
   ShiftGlue from [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk) 1.0.0's
   `framegen` (MIT) and [DXVK](https://github.com/doitsujin/dxvk) 2.6.2's
   DXBC compiler (zlib License), in `thirdparty/lsfg` of its source tree.
