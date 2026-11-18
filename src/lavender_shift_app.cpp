@@ -618,6 +618,7 @@ void LavenderShiftApp::ToggleSettingsMenu() {
   services.quit = [this] { QuitFromMenu(); };
   services.save_backups = save_backups_.get();
   services.save_sync = save_sync_.get();
+  if (!user_root_.empty()) services.luts_dir = user_root_ / "luts";
   services.draw_resolution_scale = [this]() -> uint32_t {
     auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
     return graphics ? graphics->draw_resolution_scale() : 0;

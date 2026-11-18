@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -33,6 +34,8 @@ struct SettingsServices {
   std::function<std::vector<rex::ui::UpscalerInfo>()> frame_generators;
   // Closes the window the way its close button does; no row without it.
   std::function<void()> quit;
+  // The player's .cube colour LUTs; no COLOUR LUT row without one.
+  std::filesystem::path luts_dir;
   // The save backups; no SAVE BACKUPS row without them.
   SaveBackups* save_backups = nullptr;
   // Save sync; no SAVE SYNC row without it.

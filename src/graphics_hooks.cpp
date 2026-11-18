@@ -24,6 +24,14 @@ REXCVAR_DEFINE_BOOL(disable_bloom, false, "Lavender Shift",
                     "weather, exposure and tone mapping stay as they are)");
 REXCVAR_DEFINE_BOOL(disable_motion_blur, false, "Lavender Shift",
                     "Turn off the game's motion blur (always off under a temporal upscaler)");
+REXCVAR_DEFINE_DOUBLE(lavender_bloom_strength, 1.0, "Lavender Shift",
+                      "Scale the game's bloom: 1 is the game's own (disable_bloom still turns "
+                      "it off)")
+    .range(0.0, 2.0);
+REXCVAR_DEFINE_DOUBLE(lavender_motion_blur_strength, 1.0, "Lavender Shift",
+                      "Scale the game's motion blur: 1 is the game's own (disable_motion_blur "
+                      "still turns it off)")
+    .range(0.0, 2.0);
 REXCVAR_DEFINE_BOOL(disable_depth_of_field, false, "Lavender Shift",
                     "Turn off the game's depth of field (always off under a temporal upscaler)");
 REXCVAR_DEFINE_DOUBLE(lavender_fov_scale, 1.0, "Lavender Shift",
@@ -47,43 +55,57 @@ void CountHook(HookId id);
 REXCVAR_DEFINE_BOOL(lavender_log_hooks, false, "Lavender Shift",
                     "Log how many times each settings hook has run, every 10 s");
 
-// The frame's interpolated bloom scale, at r1+264, after the debug-mode
-// adjustment (TU v2 0x82474E2C; FH1 v4 0x82494E44).
+// The frame's interpolated bloom scale, a float at r1+264, after the
+// debug-mode adjustment (TU v2 0x82474E2C; FH1 v4 0x82494E44). BLOOM zeroes
+// it or scales it.
 void LavenderBloomScale(PPCRegister& r1) {
   CountHook(kBloom);
+  const uint32_t address = r1.u32 + 264u;
   if (REXCVAR_GET(disable_bloom)) {
-    lavender_shift::guest::StoreU32(r1.u32 + 264u, 0u);
+    lavender_shift::guest::StoreU32(address, 0u);
+    return;
+  }
+  const double strength = REXCVAR_GET(lavender_bloom_strength);
+  if (strength != 1.0) {
+    lavender_shift::guest::StoreF32(address,
+                                    float(lavender_shift::guest::LoadF32(address) * strength));
   }
 }
 
 // Motion blur's strength is stored once, while a scene loads, by one
 // instruction (TU v2 0x82F0483C, stfs f8 to r3+80; FH1 v4 0x82E3A924, the
 // Xenia Canary FH1 patch skips it). Skipping it leaves the strength at 0.
-// The game never stores it again, so the hook keeps each object and the
-// value it stored, and ApplyMotionBlur writes 0 or that value back when the
+// The game never stores it again, so the hook keeps each object, the value
+// the game stored and the value written in its place, and ApplyMotionBlur
+// writes the stored value times MOTION BLUR (0 when off) back when the
 // setting changes. Measured: the site runs 6 times while loading and never
 // in play.
 namespace {
 
 struct BlurStrength {
   uint32_t object;
-  float value;
+  float value;    // What the game stored.
+  float written;  // What r3+80 holds now.
 };
 std::mutex g_blur_mutex;
 std::vector<BlurStrength> g_blur_strengths;
-bool g_blur_applied_off = false;
+double g_blur_applied_scale = 1.0;
 
-bool MotionBlurOff() {
-  return REXCVAR_GET(disable_motion_blur) || rex::ui::IsTemporalUpscalerActive();
+// What the game's strength is multiplied by: 0 while motion blur is off.
+double MotionBlurScale() {
+  if (REXCVAR_GET(disable_motion_blur) || rex::ui::IsTemporalUpscalerActive()) return 0.0;
+  return REXCVAR_GET(lavender_motion_blur_strength);
 }
 
 }  // namespace
 
+// True skips the game's store: the hook has written the strength itself.
 bool LavenderDisableMotionBlur(PPCRegister& r3, PPCRegister& f8) {
   CountHook(kMotionBlur);
-  const bool off = MotionBlurOff();
+  const double scale = MotionBlurScale();
+  const float value = float(f8.f64);
+  const BlurStrength strength = {r3.u32, value, float(value * scale)};
   std::lock_guard<std::mutex> lock(g_blur_mutex);
-  const BlurStrength strength = {r3.u32, float(f8.f64)};
   auto it = std::find_if(g_blur_strengths.begin(), g_blur_strengths.end(),
                          [&](const BlurStrength& s) { return s.object == strength.object; });
   if (it != g_blur_strengths.end()) {
@@ -91,11 +113,10 @@ bool LavenderDisableMotionBlur(PPCRegister& r3, PPCRegister& f8) {
   } else {
     g_blur_strengths.push_back(strength);
   }
-  if (off) {
-    lavender_shift::guest::StoreF32(r3.u32 + 80u, 0.0f);
-  }
-  g_blur_applied_off = off;
-  return off;
+  g_blur_applied_scale = scale;
+  if (scale == 1.0) return false;
+  lavender_shift::guest::StoreF32(r3.u32 + 80u, strength.written);
+  return true;
 }
 
 // Each of the three depth-of-field decisions reads 0 instead of its flag
@@ -152,20 +173,20 @@ void LogHookCalls() {
 }
 
 void ApplyMotionBlur() {
-  const bool off = MotionBlurOff();
+  const double scale = MotionBlurScale();
   std::lock_guard<std::mutex> lock(g_blur_mutex);
-  if (off == g_blur_applied_off) return;
-  g_blur_applied_off = off;
+  if (scale == g_blur_applied_scale) return;
+  g_blur_applied_scale = scale;
   size_t written = 0;
-  for (const BlurStrength& strength : g_blur_strengths) {
-    // Only an object that still holds what was stored or what was written:
-    // one freed with its scene is left alone.
-    const float current = guest::LoadF32(strength.object + 80u);
-    if (current != strength.value && current != 0.0f) continue;
-    guest::StoreF32(strength.object + 80u, off ? 0.0f : strength.value);
+  for (BlurStrength& strength : g_blur_strengths) {
+    // Only an object that still holds what was written: one freed with its
+    // scene is left alone.
+    if (guest::LoadF32(strength.object + 80u) != strength.written) continue;
+    strength.written = float(strength.value * scale);
+    guest::StoreF32(strength.object + 80u, strength.written);
     ++written;
   }
-  REXLOG_INFO("Motion blur {} ({} of {} blur objects)", off ? "off" : "on", written,
+  REXLOG_INFO("Motion blur at {:.0f}% ({} of {} blur objects)", scale * 100.0, written,
               g_blur_strengths.size());
 }
 

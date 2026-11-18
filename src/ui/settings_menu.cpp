@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -389,11 +390,38 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     }
     rows.push_back(Setting("OUTPUT SCALING", std::move(scaling)));
   }
-  rows.push_back(Setting("SHARPENING", {{"OFF", {{"present_fsr_sharpness_reduction", "2.0"}}},
-                                        {"LOW", {{"present_fsr_sharpness_reduction", "1.0"}}},
-                                        {"MEDIUM", {{"present_fsr_sharpness_reduction", "0.5"}}},
-                                        {"HIGH", {{"present_fsr_sharpness_reduction", "0.2"}}},
-                                        {"MAX", {{"present_fsr_sharpness_reduction", "0.0"}}}}));
+  // RCAS's sharpness (FSR 1 and the temporal upscalers) or, under CAS, CAS's
+  // own: each effect keeps its level. CAS always sharpens: 0, its default,
+  // is its usual amount and 1 its most.
+  {
+    MenuRow rcas = Setting("SHARPENING", {{"OFF", {{"present_fsr_sharpness_reduction", "2.0"}}},
+                                          {"LOW", {{"present_fsr_sharpness_reduction", "1.0"}}},
+                                          {"MEDIUM", {{"present_fsr_sharpness_reduction", "0.5"}}},
+                                          {"HIGH", {{"present_fsr_sharpness_reduction", "0.2"}}},
+                                          {"MAX", {{"present_fsr_sharpness_reduction", "0.0"}}}});
+    MenuRow cas = Setting("SHARPENING", {{"LOW", {{"present_cas_additional_sharpness", "0.0"}}},
+                                         {"MEDIUM", {{"present_cas_additional_sharpness", "0.33"}}},
+                                         {"HIGH", {{"present_cas_additional_sharpness", "0.67"}}},
+                                         {"MAX", {{"present_cas_additional_sharpness", "1.0"}}}});
+    const auto under_cas = [] { return SameValue(Unquote(Live("present_effect")), "cas"); };
+    MenuRow sharpening;
+    sharpening.label = "SHARPENING";
+    sharpening.value = [under_cas, rcas = rcas.value, cas = cas.value] {
+      return under_cas() ? cas() : rcas();
+    };
+    sharpening.adjust = [under_cas, rcas = rcas.adjust, cas = cas.adjust](int direction) {
+      if (under_cas()) {
+        cas(direction);
+      } else {
+        rcas(direction);
+      }
+    };
+    rows.push_back(std::move(sharpening));
+  }
+  // Against banding: the presenter's last pass dithers the game's 10-bit
+  // frame down to the window's format when that pass is bilinear, CAS or
+  // FSR 1's RCAS.
+  rows.push_back(Toggle("DITHERING", "present_dither"));
   rows.push_back(Page("UPSCALING AND FRAME GENERATION", &SettingsPages::Upscaling));
 #if defined(_WIN32)
   // Windows HDR on for the game's display while it runs and back off when it
@@ -913,9 +941,67 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
                                       {"swap_ambient_occlusion_strength", "70"}}},
                           {"HIGH", {{"swap_ambient_occlusion", "true"},
                                     {"swap_ambient_occlusion_strength", "100"}}}}));
-  // FH2's own post effects, switched in its code (src/graphics_hooks.cpp).
-  rows.push_back(Toggle("BLOOM", "disable_bloom", true));
-  rows.push_back(Toggle("MOTION BLUR", "disable_motion_blur", true));
+  // How far it looks for what occludes a pixel; it fades out from 80 to 200
+  // radii away.
+  {
+    MenuRow radius = Setting("AO RADIUS", {{"0.5 M", {{"swap_ambient_occlusion_radius", "0.5"}}},
+                                           {"1 M", {{"swap_ambient_occlusion_radius", "1.0"}}},
+                                           {"1.5 M", {{"swap_ambient_occlusion_radius", "1.5"}}},
+                                           {"2 M", {{"swap_ambient_occlusion_radius", "2.0"}}}});
+    radius.enabled = [] { return SameValue(Live("swap_ambient_occlusion"), "true"); };
+    rows.push_back(std::move(radius));
+  }
+  // A .cube colour LUT from <user>/luts on the scene at swap; the HUD keeps
+  // its colours (Pinyon Shift's rows).
+  {
+    std::vector<Choice> luts = {{"OFF", {{"scene_lut_path", "\"\""}}}};
+    std::vector<std::filesystem::path> files;
+    if (!services_.luts_dir.empty()) {
+      std::error_code error;
+      for (auto it = std::filesystem::directory_iterator(services_.luts_dir, error);
+           !error && it != std::filesystem::directory_iterator(); it.increment(error)) {
+        std::string extension = rex::path_to_utf8(it->path().extension());
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char c) { return char(std::tolower(c)); });
+        if (it->is_regular_file(error) && extension == ".cube") files.push_back(it->path());
+      }
+    }
+    std::sort(files.begin(), files.end());
+    for (const auto& file : files) {
+      // UTF-8 throughout: path::string() throws on Windows for a name the
+      // ANSI code page can't hold.
+      std::string path = rex::path_to_utf8(file);
+      std::replace(path.begin(), path.end(), '\\', '/');
+      luts.push_back({Upper(rex::path_to_utf8(file.stem())),
+                      {{"scene_lut_path", config::Quote(path)}}});
+    }
+    const bool any = luts.size() > 1 || !Unquote(Live("scene_lut_path")).empty();
+    if (any) {
+      rows.push_back(Setting("COLOUR LUT", std::move(luts)));
+      std::vector<Choice> strengths;
+      for (int strength : {25, 50, 75, 100}) {
+        strengths.push_back({std::to_string(strength) + "%",
+                             {{"scene_lut_strength", std::to_string(strength)}}});
+      }
+      MenuRow strength = Setting("LUT STRENGTH", std::move(strengths));
+      strength.enabled = [] { return !Unquote(Live("scene_lut_path")).empty(); };
+      rows.push_back(std::move(strength));
+    }
+  }
+  // FH2's own post effects, set in its code (src/graphics_hooks.cpp). Bloom
+  // and motion blur scale what the game sets, 100% being its own.
+  const auto strength = [](const char* off_name, const char* strength_name) {
+    std::vector<Choice> choices = {{"OFF", {{off_name, "true"}}}};
+    for (const char* value : {"0.25", "0.5", "0.75", "1.0", "1.5", "2.0"}) {
+      const int percent = int(std::lround(std::stod(value) * 100));
+      choices.push_back(
+          {std::to_string(percent) + "%", {{off_name, "false"}, {strength_name, value}}});
+    }
+    return choices;
+  };
+  rows.push_back(Setting("BLOOM", strength("disable_bloom", "lavender_bloom_strength")));
+  rows.push_back(
+      Setting("MOTION BLUR", strength("disable_motion_blur", "lavender_motion_blur_strength")));
   rows.push_back(Toggle("DEPTH OF FIELD", "disable_depth_of_field", true));
   // Through FH2's render scenarios (src/render_settings.cpp).
   rows.push_back(Toggle("SHADOWS", "lavender_shadows"));
