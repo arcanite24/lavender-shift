@@ -266,7 +266,8 @@ std::string SettingsPages::ResolutionLine() const {
     }
     return line + ", SHOWN AT THAT SIZE";
   }
-  std::string upscaler = SameValue(effect, "fsr") ? ", FSR 1 UPSCALES TO "
+  std::string upscaler = SameValue(effect, "fsr")   ? ", FSR 1 UPSCALES TO "
+                         : SameValue(effect, "gsr") ? ", GSR UPSCALES TO "
                          : IsTemporalEffect(effect)
                              ? ", " + TemporalUpscalerLabel(effect) + " UPSCALES TO "
                              : std::string(", STRETCHED TO ");
@@ -382,6 +383,13 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
         services_.upscalers ? services_.upscalers() : std::vector<rex::ui::UpscalerInfo>{};
     std::stable_sort(upscalers.begin(), upscalers.end(),
                      [](const auto& a, const auto& b) { return a.id < b.id; });
+    // Snapdragon GSR 1, spatial like FSR 1, in the presenters that have it
+    // (Vulkan).
+    for (const rex::ui::UpscalerInfo& info : upscalers) {
+      if (info.id == "gsr" && info.available) {
+        scaling.push_back({"GSR", {{"present_effect", "\"gsr\""}}});
+      }
+    }
     for (const rex::ui::UpscalerInfo& info : upscalers) {
       if (info.kind == rex::ui::UpscalerKind::kTemporal && info.available) {
         scaling.push_back(
@@ -392,7 +400,8 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
   }
   // RCAS's sharpness (FSR 1 and the temporal upscalers) or, under CAS, CAS's
   // own: each effect keeps its level. CAS always sharpens: 0, its default,
-  // is its usual amount and 1 its most.
+  // is its usual amount and 1 its most. GSR has no RCAS pass; its edge
+  // sharpening is fixed.
   {
     MenuRow rcas = Setting("SHARPENING", {{"OFF", {{"present_fsr_sharpness_reduction", "2.0"}}},
                                           {"LOW", {{"present_fsr_sharpness_reduction", "1.0"}}},
@@ -406,6 +415,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     const auto under_cas = [] { return SameValue(Unquote(Live("present_effect")), "cas"); };
     MenuRow sharpening;
     sharpening.label = "SHARPENING";
+    sharpening.enabled = [] { return !SameValue(Unquote(Live("present_effect")), "gsr"); };
     sharpening.value = [under_cas, rcas = rcas.value, cas = cas.value] {
       return under_cas() ? cas() : rcas();
     };
@@ -420,7 +430,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
   }
   // Against banding: the presenter's last pass dithers the game's 10-bit
   // frame down to the window's format when that pass is bilinear, CAS or
-  // FSR 1's RCAS.
+  // FSR 1's RCAS; GSR's pass does not dither.
   rows.push_back(Toggle("DITHERING", "present_dither"));
   rows.push_back(Page("UPSCALING AND FRAME GENERATION", &SettingsPages::Upscaling));
 #if defined(_WIN32)

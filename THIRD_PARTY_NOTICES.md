@@ -33,6 +33,11 @@ uses in place of building them.
   `framegen` (MIT) and [DXVK](https://github.com/doitsujin/dxvk) 2.6.2's
   DXBC compiler (zlib License), in `thirdparty/lsfg` of its source tree.
   No Lossless Scaling code or shaders are included
+- The GSR choice of OUTPUT SCALING is Qualcomm's
+  [Snapdragon Game Super Resolution](https://github.com/SnapdragonGameStudios/snapdragon-gsr)
+  1 shader (BSD-3-Clause), compiled into ShiftGlue's Vulkan presenter;
+  its licence is in `thirdparty/snapdragon-gsr` of ShiftGlue's source tree
+  and in the ShiftGlue kit
 - For the Android build: the [Android NDK and platform-tools](https://developer.android.com/studio/terms)
   from Google (the player accepts the Android SDK licence in the launcher
   first; `config/android-toolchain.json`), and
