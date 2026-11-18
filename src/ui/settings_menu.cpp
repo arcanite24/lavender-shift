@@ -523,6 +523,15 @@ std::unique_ptr<MenuScreen> SettingsPages::Upscaling() {
                                           {"L (TRANSFORMER 2)", {{"present_dlss_preset", "\"l\""}}},
                                           {"M (TRANSFORMER 2)", {{"present_dlss_preset", "\"m\""}}}}));
   }
+  // ShiftGlue's texture_mip_lod_bias_upscaler: under FSR 2/3 or DLSS each
+  // texture picks the mip the output size would, log2(render / output) on
+  // top of TEXTURE DETAIL (whose SHARPEST adds the vendors' further -1).
+  if (TemporalUpscalerAvailable("dlss") || TemporalUpscalerAvailable("fsr2") ||
+      TemporalUpscalerAvailable("fsr3")) {
+    rows.push_back(Setting("UPSCALED TEXTURE DETAIL",
+                           {{"OUTPUT SIZE", {{"texture_mip_lod_bias_upscaler", "true"}}},
+                            {"RENDER SIZE", {{"texture_mip_lod_bias_upscaler", "false"}}}}));
+  }
   rows.push_back(Toggle("HUD KEPT OUT OF GENERATED FRAMES", "present_frame_generation_hud"));
   if (offered(generators, "lsfg")) {
     // Frames shown per real one; FSR 3 and DLSS (on an RTX 40) stay at 2X.
