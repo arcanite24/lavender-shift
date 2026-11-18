@@ -449,9 +449,14 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
       // real frames a second the generated ones show their errors and the
       // input lag grows (AMD's and NVIDIA's guidance).
       const double guest_refresh = std::atof(Live("video_mode_refresh_rate").c_str());
+      const double shown_per_real =
+          SameValue(Unquote(Live("present_frame_generation")), "lsfg")
+              ? std::clamp(std::atof(Live("present_frame_generation_multiplier").c_str()), 2.0,
+                           4.0)
+              : 2.0;
       if (guest_refresh > 0.0) {
         return "FRAME GENERATION: THE GAME RENDERS AT MOST " +
-               std::to_string(uint32_t(guest_refresh * 0.5 + 0.5)) + " FPS";
+               std::to_string(uint32_t(guest_refresh / shown_per_real + 0.5)) + " FPS";
       }
     }
     return ResolutionLine();
@@ -484,6 +489,10 @@ std::unique_ptr<MenuScreen> SettingsPages::Upscaling() {
   }
   rows.push_back(Toggle("HUD KEPT OUT OF GENERATED FRAMES", "present_frame_generation_hud"));
   if (offered(generators, "lsfg")) {
+    // Frames shown per real one; FSR 3 and DLSS (on an RTX 40) stay at 2X.
+    rows.push_back(Setting("LSFG FRAMES", {{"2X", {{"present_frame_generation_multiplier", "2"}}},
+                                           {"3X", {{"present_frame_generation_multiplier", "3"}}},
+                                           {"4X", {{"present_frame_generation_multiplier", "4"}}}}));
     rows.push_back(Setting("LSFG MODE", {{"QUALITY", {{"present_lsfg_performance", "false"}}},
                                          {"PERFORMANCE", {{"present_lsfg_performance", "true"}}}},
                            true));
