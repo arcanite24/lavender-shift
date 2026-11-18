@@ -318,6 +318,14 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
   // ShiftGlue's Reflex-style cap (low_latency_frame_cap): a little under the
   // refresh so frames do not queue behind v-sync. For G-SYNC and FreeSync.
   rows.push_back(Toggle("LOW LATENCY (VRR DISPLAYS)", "low_latency_frame_cap"));
+  // NVIDIA Reflex (VK_NV_low_latency2), only where the driver offers it.
+  if (rex::ui::vulkan::ReflexAvailable()) {
+    rows.push_back(Setting("NVIDIA REFLEX",
+                           {{"OFF", {{"present_reflex", "false"}, {"present_reflex_boost", "false"}}},
+                            {"ON", {{"present_reflex", "true"}, {"present_reflex_boost", "false"}}},
+                            {"ON + BOOST",
+                             {{"present_reflex", "true"}, {"present_reflex_boost", "true"}}}}));
+  }
   {
     // Every camera's vertical field of view (src/graphics_hooks.cpp).
     std::vector<Choice> fov;
