@@ -20,6 +20,16 @@ if(ANDROID)
     endif()
 endif()
 
+# Release optimization for this project's targets (the translated game, the
+# facades and our sources), as the SDK sets it for its own directory. The
+# targets otherwise take it only from CMAKE_CXX_FLAGS_RELEASE, and multivac's
+# build cache of 2026-11-16 had that empty: the game compiled at -O0, free
+# roam CPU-bound at about 45 fps and the title's PressStart.wmv decoded at
+# 7-10 fps on a Ryzen 7 5800X.
+if(NOT MSVC)
+    add_compile_options($<$<CONFIG:Release>:-O3> $<$<CONFIG:Release>:-DNDEBUG>)
+endif()
+
 # SDK version
 # Set REXSDK_VERSION to pin a specific SDK version.
 # Otherwise, the version of the SDK that generated this file is used.
