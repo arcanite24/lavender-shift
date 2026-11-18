@@ -12,10 +12,25 @@ this needs. Pinyon Shift built it for FH1 ([its MODDING.md](https://github.com/a
 - **Replacement by identity.** A SPIR-V file named
   `shader_<guest hash>_<modification>_<translated hash>.spv` in a mod's
   `shaders/` folder, or in `vulkan_shader_override_dirs`, replaces that one
-  translation. If the driver rejects the file, the original translation is
-  used instead. `vulkan_shader_overrides=false` turns every replacement off.
-  A replacement must keep the original's bindings, inputs and outputs: the
-  guest still sets the constants and textures.
+  translation. The translated hash changes with the resolution scale, the
+  platform and any translator change, so a replacement may instead be
+  named `shader_<guest hash>_<modification>.spv` or `shader_<guest hash>.spv`
+  (SR-9): every root's exact name is tried first, then those, root by
+  root, and one such file serves every translation of that guest shader it
+  fits. `vulkan_shader_overrides=false` turns every replacement off.
+- **Interface check.** A replacement is used only when it fits the
+  translation: the same stage, only bindings the translation has (same set,
+  binding and type, no more array elements or uniform bytes), no inputs the
+  translation lacks, and exactly its outputs. A file that does not fit is
+  logged with the reason and the translation is used. If the driver rejects
+  the module, or a pipeline built with it, that translation or that
+  pipeline uses the original. The guest still sets the constants and
+  textures. A replacement keyed by guest hash alone that fetches with
+  unnormalised coordinates must scale them itself, since the translation
+  bakes the resolution scale in as constants.
+- **Exact names.** `tools/shader-override-names.py` copies guest-named
+  replacements to the exact names a discovery frame recorded, for authors
+  who want one file per translation.
 - **Discovery.** `vulkan_shader_discovery_frame=N` records one frame's
   draws, sampled bindings, resolves and shader identities.
   `tools/discover-fh1-shaders.py` (Pinyon's) turns that record into a
