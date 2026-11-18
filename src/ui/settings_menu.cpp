@@ -315,6 +315,9 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
                           {"WIDER VIEW", {{"lavender_hor_plus", "true"},
                                           {"present_allow_overscan_cutoff", "false"}}}}));
   rows.push_back(Toggle("VSYNC", "vsync"));
+  // ShiftGlue's Reflex-style cap (low_latency_frame_cap): a little under the
+  // refresh so frames do not queue behind v-sync. For G-SYNC and FreeSync.
+  rows.push_back(Toggle("LOW LATENCY (VRR DISPLAYS)", "low_latency_frame_cap"));
   {
     // Every camera's vertical field of view (src/graphics_hooks.cpp).
     std::vector<Choice> fov;
@@ -759,6 +762,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Debug() {
   rows.push_back(Toggle("FSR 3 FRAME GENERATION DEBUG VIEW", "present_ffx_frame_generation_debug"));
   rows.push_back(Toggle("AI DRIVES THE CAR", "lavender_ai_drives_player"));
   rows.push_back(Toggle("LOG FRAME GENERATION", "present_frame_generation_log"));
+  rows.push_back(Toggle("LOG INPUT LAG", "present_latency_log"));
   rows.push_back(Toggle("LOG SIMULATION RATE", "lavender_simulation_log"));
   auto screen = std::make_unique<MenuScreen>("DEBUG", std::move(rows));
   screen->set_body("Logs go to the file named by --log_file. Input views replace the picture "
