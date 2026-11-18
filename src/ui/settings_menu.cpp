@@ -24,6 +24,7 @@
 #include <rex/ui/vulkan/presenter.h>
 
 #include "config/default_keys.h"
+#include "manual_save.h"
 #include "save_backups.h"
 #include "save_sync.h"
 #include "ui/music.h"
@@ -122,8 +123,21 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
     return -1;
   }
 
-  MenuRow Setting(std::string label, std::vector<Choice> choices);
+  // restart: the values take effect at the next start (the row says so).
+  MenuRow Setting(std::string label, std::vector<Choice> choices, bool restart = false);
   MenuRow Toggle(std::string label, std::string name, bool inverted = false);
+  int FindSaved(const std::vector<Choice>& choices) const {
+    for (size_t i = 0; i < choices.size(); ++i) {
+      bool all = true;
+      for (const auto& [name, literal] : choices[i].values) {
+        all = all && SameValue(Unquote(Saved(name)), Unquote(literal));
+      }
+      if (all) {
+        return int(i);
+      }
+    }
+    return -1;
+  }
   MenuRow Page(std::string label, std::unique_ptr<MenuScreen> (SettingsPages::*page)());
   std::string ResolutionLine() const;
   bool TemporalUpscalerAvailable(std::string_view id) const {
@@ -136,12 +150,14 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
   void Save();
 
   std::unique_ptr<MenuScreen> Display();
+  std::unique_ptr<MenuScreen> Upscaling();
   std::unique_ptr<MenuScreen> Hud();
   std::unique_ptr<MenuScreen> Camera();
   std::unique_ptr<MenuScreen> HdrCalibration();
   std::unique_ptr<MenuScreen> Graphics();
   std::unique_ptr<MenuScreen> Audio();
   std::unique_ptr<MenuScreen> Gameplay();
+  std::unique_ptr<MenuScreen> Debug();
   std::unique_ptr<MenuScreen> Cheats();
   std::unique_ptr<MenuScreen> Controls();
   std::unique_ptr<MenuScreen> ControllerButtons();
@@ -164,13 +180,14 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
 // none does) and applies the next one at once: every value is set live and
 // saved. A setting the SDK still marks as needing a restart is logged, since
 // the menu must not offer one (it would silently do nothing until then).
-MenuRow SettingsPages::Setting(std::string label, std::vector<Choice> choices) {
+MenuRow SettingsPages::Setting(std::string label, std::vector<Choice> choices,
+                               bool restart) {
   for (const auto& choice : choices) {
     for (const auto& [name, literal] : choice.values) {
       const auto* flag = rex::cvar::GetFlagInfo(name);
       if (!flag) {
         REXLOG_WARN("Settings: {} offers unknown setting {}", label, name);
-      } else if (flag->lifecycle != rex::cvar::Lifecycle::kHotReload) {
+      } else if (!restart && flag->lifecycle != rex::cvar::Lifecycle::kHotReload) {
         REXLOG_WARN("Settings: {} sets {}, which does not apply live", label, name);
       }
     }
@@ -178,14 +195,14 @@ MenuRow SettingsPages::Setting(std::string label, std::vector<Choice> choices) {
   MenuRow row;
   row.label = std::move(label);
   auto shared = std::make_shared<std::vector<Choice>>(std::move(choices));
-  row.value = [shared] {
-    const int index = Find(*shared);
+  row.value = [this, shared, restart] {
+    const int index = restart ? FindSaved(*shared) : Find(*shared);
     return index >= 0 ? (*shared)[size_t(index)].label : std::string("CUSTOM");
   };
-  row.adjust = [this, shared, label = row.label](int direction) {
+  row.adjust = [this, shared, restart, label = row.label](int direction) {
     const auto& choices = *shared;
     const int count = int(choices.size());
-    const int current = Find(choices);
+    const int current = restart ? FindSaved(choices) : Find(choices);
     const int next = current < 0 ? 0 : (current + direction + count) % count;
     std::string values;
     for (const auto& [name, literal] : choices[size_t(next)].values) {
@@ -366,6 +383,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
                                         {"MEDIUM", {{"present_fsr_sharpness_reduction", "0.5"}}},
                                         {"HIGH", {{"present_fsr_sharpness_reduction", "0.2"}}},
                                         {"MAX", {{"present_fsr_sharpness_reduction", "0.0"}}}}));
+  rows.push_back(Page("UPSCALING AND FRAME GENERATION", &SettingsPages::Upscaling));
 #if defined(_WIN32)
   // Windows HDR on for the game's display while it runs and back off when it
   // closes; ON also turns the game's HDR output on (a display already in HDR
@@ -436,6 +454,72 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     return ResolutionLine();
   };
   return std::make_unique<MenuScreen>("DISPLAY", std::move(rows), std::move(note));
+}
+
+// Issue #1094's advanced options: what each provider lets the player choose
+// beyond OUTPUT SCALING, SHARPENING and FRAME GENERATION on DISPLAY. The
+// upscale mode (DLAA, quality, ...) follows from the render size and the
+// output size (RESOLUTION SCALE on GRAPHICS and the window), as the
+// providers pick it, so the page shows it rather than setting it.
+std::unique_ptr<MenuScreen> SettingsPages::Upscaling() {
+  std::vector<MenuRow> rows;
+  const auto offered = [](const std::vector<rex::ui::UpscalerInfo>& infos, std::string_view id) {
+    return std::any_of(infos.begin(), infos.end(),
+                       [&](const auto& info) { return SameValue(info.id, id) && info.available; });
+  };
+  const std::vector<rex::ui::UpscalerInfo> generators =
+      services_.frame_generators ? services_.frame_generators()
+                                 : std::vector<rex::ui::UpscalerInfo>{};
+  if (TemporalUpscalerAvailable("dlss")) {
+    // J and K are DLSS 4's transformer model, L and M DLSS 4.5's; DEFAULT is
+    // the runtime's choice, which the NVIDIA app's override replaces.
+    rows.push_back(Setting("DLSS MODEL", {{"DEFAULT", {{"present_dlss_preset", "\"default\""}}},
+                                          {"J (TRANSFORMER)", {{"present_dlss_preset", "\"j\""}}},
+                                          {"K (TRANSFORMER)", {{"present_dlss_preset", "\"k\""}}},
+                                          {"L (TRANSFORMER 2)", {{"present_dlss_preset", "\"l\""}}},
+                                          {"M (TRANSFORMER 2)", {{"present_dlss_preset", "\"m\""}}}}));
+  }
+  rows.push_back(Toggle("HUD KEPT OUT OF GENERATED FRAMES", "present_frame_generation_hud"));
+  if (offered(generators, "lsfg")) {
+    rows.push_back(Setting("LSFG MODE", {{"QUALITY", {{"present_lsfg_performance", "false"}}},
+                                         {"PERFORMANCE", {{"present_lsfg_performance", "true"}}}},
+                           true));
+    rows.push_back(Setting("LSFG FLOW SCALE", {{"100%", {{"present_lsfg_flow_scale", "1.0"}}},
+                                               {"75%", {{"present_lsfg_flow_scale", "0.75"}}},
+                                               {"50%", {{"present_lsfg_flow_scale", "0.5"}}},
+                                               {"25%", {{"present_lsfg_flow_scale", "0.25"}}}},
+                           true));
+  }
+  auto note = [this] {
+    const std::string effect = Unquote(Live("present_effect"));
+    const auto output = services_.output_size ? services_.output_size() : std::nullopt;
+    uint32_t scale = services_.draw_resolution_scale ? services_.draw_resolution_scale() : 0;
+    if (!scale) {
+      const auto value = Number(Live("draw_resolution_scale_x"));
+      scale = value && *value >= 1 ? uint32_t(*value) : 1;
+    }
+    const auto width = Number(Live("video_mode_width"));
+    const uint32_t render_width = uint32_t(width && *width >= 1 ? *width : 1280) * scale;
+    if (!IsTemporalEffect(effect) || !TemporalUpscalerAvailable(effect) || !output ||
+        !output->first) {
+      return std::string("SET OUTPUT SCALING TO DLSS OR FSR FOR AN UPSCALE MODE");
+    }
+    // The thresholds the DLSS feature uses (vulkan_dlss_upscaler.cpp); FSR
+    // takes the ratio itself.
+    const float ratio = float(output->first) / float(render_width);
+    const char* mode = ratio <= 1.01f  ? (SameValue(effect, "dlss") ? "DLAA" : "NATIVE AA")
+                       : ratio <= 1.55f ? "QUALITY"
+                       : ratio <= 1.8f  ? "BALANCED"
+                       : ratio <= 2.5f  ? "PERFORMANCE"
+                                        : "ULTRA PERFORMANCE";
+    return fmt::format("{} MODE: {} ({:.2f}X), SET BY RESOLUTION SCALE",
+                       TemporalUpscalerLabel(effect), mode, ratio);
+  };
+  auto screen = std::make_unique<MenuScreen>("UPSCALING AND FRAME GENERATION", std::move(rows),
+                                             std::move(note));
+  screen->set_body("LSFG settings apply after a restart. LSFG runs from your own Lossless "
+                   "Scaling (Steam) or the Lossless.dll set as present_lsfg_dll.");
+  return screen;
 }
 
 std::unique_ptr<MenuScreen> SettingsPages::HdrCalibration() {
@@ -647,6 +731,39 @@ std::unique_ptr<MenuScreen> SettingsPages::Gameplay() {
   rows.push_back(Toggle("REPLAY INTRO WHEN IDLE", "lavender_no_attract_video", true));
   rows.push_back(Toggle("PHOTO CAMERA THROUGH WALLS", "lavender_photo_camera_through_walls"));
   return std::make_unique<MenuScreen>("GAMEPLAY", std::move(rows));
+}
+
+// The live debug switches that otherwise need a command line: what the
+// temporal upscaler and frame generation get (the depth, the motion and the
+// objects with motion of their own), and the diagnostics. Each applies at
+// once and is saved like any other row.
+std::unique_ptr<MenuScreen> SettingsPages::Debug() {
+  std::vector<MenuRow> rows;
+  MenuRow overlay;
+  overlay.label = "PERFORMANCE OVERLAY (F3)";
+  overlay.activate = [] { rex::ui::TriggerBind("bind_debug_overlay"); };
+  rows.push_back(std::move(overlay));
+  // Shown in place of the picture while a temporal upscaler (OUTPUT
+  // SCALING DLSS, FSR 2 or FSR 3) runs.
+  rows.push_back(Setting("UPSCALER INPUT VIEW",
+                         {{"OFF", {{"present_upscaler_view", "\"upscale\""}}},
+                          {"DEPTH", {{"present_upscaler_view", "\"depth\""}}},
+                          {"MOTION", {{"present_upscaler_view", "\"motion\""}}}}));
+  rows.push_back(Setting("OBJECT SLOTS IN MOTION VIEW",
+                         {{"OFF", {{"present_upscaler_object_debug", "0"}}},
+                          {"ON", {{"present_upscaler_object_debug", "1"}}}}));
+  rows.push_back(Toggle("OBJECT MOTION", "present_upscaler_object_motion"));
+  rows.push_back(Toggle("CAMERA DEPTH AND MOTION", "present_upscaler_camera"));
+  rows.push_back(Toggle("UPSCALER JITTER", "present_upscaler_jitter"));
+  rows.push_back(Toggle("FRAME GENERATION KEEPS HUD OUT", "present_frame_generation_hud"));
+  rows.push_back(Toggle("FSR 3 FRAME GENERATION DEBUG VIEW", "present_ffx_frame_generation_debug"));
+  rows.push_back(Toggle("AI DRIVES THE CAR", "lavender_ai_drives_player"));
+  rows.push_back(Toggle("LOG FRAME GENERATION", "present_frame_generation_log"));
+  rows.push_back(Toggle("LOG SIMULATION RATE", "lavender_simulation_log"));
+  auto screen = std::make_unique<MenuScreen>("DEBUG", std::move(rows));
+  screen->set_body("Logs go to the file named by --log_file. Input views replace the picture "
+                   "only while OUTPUT SCALING is DLSS, FSR 2 or FSR 3.");
+  return screen;
 }
 
 // Cheats act on the player's own profile (src/cheats.cpp).
@@ -1505,6 +1622,12 @@ std::unique_ptr<MenuScreen> SettingsPages::Root() {
   resume.label = "RESUME";
   resume.activate = [self = shared_from_this()] { self->host_ui_.Close(); };
   rows.push_back(std::move(resume));
+  // The title's own full save, run on the next simulation step.
+  MenuRow save;
+  save.label = "SAVE GAME";
+  save.value = [] { return manual_save::Status(); };
+  save.activate = [] { manual_save::Request(); };
+  rows.push_back(std::move(save));
   rows.push_back(Page("DISPLAY", &SettingsPages::Display));
   rows.push_back(Page("GRAPHICS", &SettingsPages::Graphics));
   rows.push_back(Page("AUDIO", &SettingsPages::Audio));
@@ -1514,6 +1637,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Root() {
   if (services_.save_backups || services_.save_sync) {
     rows.push_back(Page("PROFILE", &SettingsPages::Profile));
   }
+  rows.push_back(Page("DEBUG", &SettingsPages::Debug));
   if (services_.quit) {
     MenuRow quit;
     quit.label = "QUIT GAME";

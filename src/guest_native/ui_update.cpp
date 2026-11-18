@@ -42,11 +42,15 @@ REXCVAR_DEFINE_UINT32(lavender_ui_update_interval,
 
 extern "C" REX_FUNC(__imp__sub_829435A0);
 
+#include "manual_save.h"
+
 namespace lavender_shift::guest_native {
 namespace {
 
 uint32_t Interval() { return REXCVAR_GET(lavender_ui_update_interval); }
-bool Enabled() { return Interval() > 1; }
+// Also on while SAVE GAME waits: the title's full save runs from here
+// (src/manual_save.cpp).
+bool Enabled() { return Interval() > 1 || manual_save::Pending(); }
 
 // Only the simulation thread runs the update and the controls' submissions.
 constexpr size_t kMaxControls = 16;
@@ -71,6 +75,8 @@ void CloseRecording() {
 }
 
 bool UiUpdateNative(PPCContext& ctx, uint8_t* base) {
+  manual_save::Update();
+  if (Interval() <= 1) return false;  // the original updates
   CloseRecording();
   if (ctx.r3.u32 != state.ui_object) {
     state = State{};
