@@ -311,11 +311,15 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
   rows.push_back(Page("HUD", &SettingsPages::Hud));
   // The one frame rate (src/frame_rate.cpp): the rate the game simulates
   // and renders at, which sets most of its CPU cost. 30 is the console's.
+  // 40 is for 120 Hz screens (the Odin 2 Portal) where 60 is not held: each
+  // frame stays up for three refreshes and the game steps 25 ms a frame,
+  // where a 60 limit falling to 40-55 mixes two- and three-vblank frames
+  // whose one or two 16.7 ms steps judder (docs/ANDROID.md).
   {
     const std::string display =
         "DISPLAY (" + std::to_string(frame_rate::DisplayRefreshRate()) + " HZ)";
     std::vector<Choice> rates;
-    for (const char* rate : {"30", "60", "120", "144"}) {
+    for (const char* rate : {"30", "40", "60", "120", "144"}) {
       rates.push_back({rate, {{"lavender_frame_rate", "\"" + std::string(rate) + "\""}}});
     }
     rates.push_back({display, {{"lavender_frame_rate", "\"display\""}}});

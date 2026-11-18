@@ -153,6 +153,37 @@ frame in the main scene pass and 1.6 ms in resolves, and shows about 100
 render passes a frame, most ended by uploads and resolves; on a tiled GPU
 each break stores and reloads its targets, the next place to look.
 
+### Frame pacing below 60 on the Odin 2 Portal
+
+Measured 2026-11-18 with the AI driving the player's car in free roam
+(`--lavender_ai_drives_player=true`), `--lavender_cvar_cycle` switching
+`lavender_frame_rate` every 25 seconds. On-screen cadence comes from
+SurfaceFlinger (`dumpsys SurfaceFlinger --latency` on the game's BLAST
+layer), the rest from `--perf_log_csv`. The panel runs at 120 Hz, although
+the game reports 60 there (`DisplayRefreshRate` has no Android path).
+
+- **Simulation speed holds.** In every steady window, at 60, 40 or 30, the
+  game simulated 0.995 to 1.005 seconds per real second. Time is lost only
+  in hitches: one 538 ms stall advanced the simulation by 26 ms.
+- **The step is one over the limit.** FH2 steps 16.7 ms at a 60 limit,
+  25 ms at 40 and 33 ms at 30, one step per two guest vblanks. When a 60
+  limit is not held, frames span two or three vblanks (16.7 or 25 ms) and
+  carry one or two 16.7 ms steps, so motion and display time disagree from
+  frame to frame. At 55 fps about 1 frame in 15 took two steps; at a 40 fps
+  average under a 60 limit, it is every other frame. That is the judder
+  ("skipped frames") in heavy places.
+- **A lower limit is even.** At a 40 limit every frame took one 25 ms step
+  and 91 % of frames stayed up for exactly three 120 Hz refreshes (96 % at
+  30 for four, 95 % at 60 for two). The rest are one refresh early or late:
+  the guest vblank runs on a host timer, not the panel's vsync, and vsync on
+  or off made no difference (both may have run mailbox; the present mode is
+  not logged).
+- **Not thermal.** After 10 minutes the GPU stayed at its 680 MHz top
+  clock and about 65 °C, the CPUs at their top clocks.
+
+The FRAME RATE page offers 40 for this: on a 120 Hz screen, a place that
+cannot hold 60 looks steadier at 40 than at a 60 limit averaging 40-55.
+
 ### Start and load times
 
 From launch to free roam with the save took about 85 seconds on the Odin
