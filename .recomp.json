@@ -1,0 +1,19 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Forza Horizon 2",
+  "wikidata": "Q17156024",
+  "system": "Xbox 360",
+  "type": "recomp",
+  "original": { "region": "USA", "revision": "Title update 2" },
+  "project": "Lavender Shift",
+  "status": "released",
+  "targets": ["Windows", "Android"],
+  "toolchain": "Shiftglue",
+  "approach": "Static recompilation with ShiftGlue, our ReXGlue fork, on Vulkan",
+  "maintainers": [{ "name": "arcanite24", "link": "https://github.com/arcanite24" }],
+  "links": [
+    { "label": "ShiftGlue", "url": "https://github.com/arcanite24/shiftglue-sdk" },
+    { "label": "Pinyon Shift (FH1)", "url": "https://github.com/arcanite24/pinyon-shift" }
+  ],
+  "notes": "Bring your own copy of the game, the USA release with title update v2; the launcher sets up the rest on Windows 10 or 11, and builds the Android version from the same launcher."
+}
