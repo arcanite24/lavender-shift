@@ -260,8 +260,14 @@ def prepare_sdk() -> None:
         raise MacError(f"the ShiftGlue folder has local changes: {SDK}")
     run_logged("rexglue-fetch", ["git", "-C", SDK, "fetch", "--depth", "1", "origin", revision])
     run_logged("rexglue-checkout", ["git", "-C", SDK, "checkout", "--detach", revision])
-    run_logged("rexglue-submodules", ["git", "-C", SDK, "submodule", "update", "--init",
-                                      "--recursive", "--force", "--jobs", "8"])
+    submodules = ["git", "-C", SDK, "submodule", "update", "--init", "--recursive", "--force"]
+    try:
+        run_logged("rexglue-submodules", submodules + ["--jobs", "8"])
+    except MacError:
+        # Parallel clones of the nested submodules have failed on a first
+        # run (pack files gone mid-fetch); one at a time picks up the rest.
+        print("rexglue-submodules: retrying one at a time", flush=True)
+        run_logged("rexglue-submodules-retry", submodules + ["--jobs", "1"])
     if git("rev-parse", "HEAD", cwd=SDK) != revision:
         raise MacError("ShiftGlue is not at the pinned revision after the checkout")
     marker.write_text(revision + "\n", encoding="utf-8")

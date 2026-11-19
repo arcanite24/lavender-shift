@@ -36,8 +36,9 @@ python3 tools/lavender_mac.py run
 `setup` checks the tools, fetches ShiftGlue at the revision the release
 pins (`config/release-toolchain.json`), extracts the disc and update (only
 the supported files are accepted), builds the translator, translates the
-game, compiles it and prepares the pipelines. The first setup takes about
-half an hour on an M4 Pro, most of it compiling. It keeps the Mac awake
+game, compiles it and prepares the pipelines. From a fresh release folder
+on an M4 Pro it took 11 minutes: 2 to fetch ShiftGlue, 10 s to extract,
+about 2 to build the translator and translate, 6.5 to compile. It keeps the Mac awake
 (`caffeinate`), and each step logs to `.local/logs`. After that, `run` is
 all you need. Saves and settings live in `.local/user` in that folder.
 
@@ -131,10 +132,5 @@ use a pad over Bluetooth or a wireless dongle.
 
 | System | Status |
 | --- | --- |
-| Mac mini, M4 Pro, macOS 26.3 (2026-11-18) | Builds with the Command Line Tools' clang and Python 3.9.6. A clean game build took 13 minutes (shared CPU). It boots to the title screen and holds 60 fps there at LOW-SPEC 60 (120 Hz display detected). The pipeline step works. Driving and free roam: not checked yet. |
+| Mac mini, M4 Pro, macOS 26.3 (2026-11-18) | The 0.2.0 package set up from a fresh folder with `setup` in 11 minutes (Command Line Tools' clang and Python 3.9.6), including the first disc and update extraction on a Mac; a second `setup` rebuilt nothing in 22 s. It boots at LOW-SPEC 60 and holds 60 fps. Played with an 8BitDo Ultimate 2C in its HID mode at 1x, 60 fps, vsync on. Not measured yet: free-roam performance at other settings. |
 | Other Apple silicon Macs | Not tested |
-
-The disc and update extraction (`lavender_setup.py disc` and `update`) have
-not been run on a Mac yet. The test Mac used files extracted on Windows,
-without their catalogs. `lavender_setup.py codegen` and `status` ran there
-on Python 3.9.6.

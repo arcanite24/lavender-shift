@@ -9,9 +9,10 @@ ShiftGlue, extracts the player's files, generates the translation and
 compiles the game on the player's machine.
 
 Scope of the first release: Windows 10 2004+ x64, Vulkan, the Stage 0
-build. Linux, macOS, Android and mods come later. A checkout now builds
-and boots to the title on Apple silicon ([MACOS.md](MACOS.md)); a Mac
-launcher and release are not planned yet.
+build. Linux, macOS, Android and mods come later. From 0.2.0 a release
+also carries `LavenderShift-<version>-macos-arm64.tar.gz` for Apple silicon,
+set up from Terminal with `tools/lavender_mac.py setup`
+([MACOS.md](MACOS.md)); a Mac launcher window is not planned yet.
 
 ## What Pinyon already has and Lavender reuses
 
