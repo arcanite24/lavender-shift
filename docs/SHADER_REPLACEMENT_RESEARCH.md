@@ -31,10 +31,20 @@ this needs. Pinyon Shift built it for FH1 ([its MODDING.md](https://github.com/a
 - **Exact names.** `tools/shader-override-names.py` copies guest-named
   replacements to the exact names a discovery frame recorded, for authors
   who want one file per translation.
-- **Discovery.** `vulkan_shader_discovery_frame=N` records one frame's
-  draws, sampled bindings, resolves and shader identities.
-  `tools/discover-fh1-shaders.py` (Pinyon's) turns that record into a
-  per-shader report, with no disassembly.
+- **Discovery.** `vulkan_shader_discovery_frame=N` with
+  `vulkan_shader_discovery_dir` records one frame's draws, sampled
+  bindings, resolves and shader identities. `tools/discover-shaders.py`
+  (ported from Pinyon's) turns that record into a per-shader report, with
+  no disassembly; `--check-mod <mod>/shaders` says which replacements match
+  the frame, are stale, or are guest names and for which translations.
+- **Frame replay A/B (SR-8).** `fh1_frame_dump_frame=-1` with
+  `fh1_frame_dump_path` saves the next whole frame. `tools/frame-replay.py
+  ab <dump> --out <dir> --a <spec> --b <spec>` replays it twice, each spec
+  a comma list of `shaders=<dir>` and `cvar=value`, and writes both images
+  with a PSNR, the largest channel difference and a diff image;
+  `replay`, `compare` and `decode` run the steps alone. A replay suspends
+  the title and exits when done, but it still starts the game, so run it
+  when nothing else is using it.
 - **Cost per pass and per shader.** `fh1_native_gpu_profile` times each
   rendering. `fh1_debug_skip_renderings` with `fh1_debug_skip_pixel_shader`
   knocks out one shader's draws live, which gives a ceiling on what
