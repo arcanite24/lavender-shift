@@ -125,7 +125,25 @@ def parallel() -> int:
     return max(1, os.cpu_count() or 4)
 
 
+def forget_moved_cache(build_dir: Path) -> None:
+    """CMake refuses a build folder configured at another path, as after the
+    folder was moved or renamed: start that build over."""
+    cache = build_dir / "CMakeCache.txt"
+    try:
+        lines = cache.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return
+    recorded = next((line.split("=", 1)[1] for line in lines
+                     if line.startswith("CMAKE_CACHEFILE_DIR:INTERNAL=")), None)
+    if recorded is not None and Path(recorded).resolve() != build_dir.resolve():
+        # Nested projects (FidelityFX's) keep caches of their own, so the
+        # whole folder goes; a moved build compiles everything again anyway.
+        print(f"{build_dir} was configured in {recorded}; building it again", flush=True)
+        shutil.rmtree(build_dir)
+
+
 def build_generator() -> None:
+    forget_moved_cache(SDK / "out" / "build" / "mac-arm64")
     run_logged("generator-configure", ["cmake", "--preset", "mac-arm64"], cwd=SDK)
     run_logged("generator-build", ["cmake", "--build", "--preset", "mac-arm64-release",
                                    "--target", "rexglue", "--parallel", parallel()], cwd=SDK)
@@ -139,20 +157,46 @@ def codegen() -> None:
     run_logged("codegen", [GENERATOR, "--log-level", "info", "--log-file",
                            LOGS / "codegen-detail.log", "codegen", MANIFEST,
                            "--xex_apply_patches=true"])
+    CODEGEN_STAMP.write_text(codegen_inputs() + "\n", encoding="utf-8")
+
+
+DEPFILE = GENERATED / "default" / "codegen.d"
+CODEGEN_STAMP = GENERATED / "lavender-mac-inputs.sha256"
+
+
+def codegen_inputs() -> str:
+    """A hash of what the translation is made from: the inputs codegen.d
+    lists, the manifest, every analysis file and the generator. By content,
+    since lavender_setup.py codegen copies the modules again on every run."""
+    files = {MANIFEST, GENERATOR, *(ROOT / "config" / "analysis").glob("*.toml")}
+    if DEPFILE.is_file():
+        text = DEPFILE.read_text(encoding="utf-8", errors="replace").replace("\\\n", " ")
+        files.update(Path(p) for p in text.split(":", 1)[-1].split())
+    digest = hashlib.sha256()
+    for path in sorted(files):
+        digest.update(str(path).encode())
+        digest.update(sha256(path).encode() if path.is_file() else b"missing")
+    return digest.hexdigest()
 
 
 def codegen_current() -> bool:
     # The generator writes its inputs' absolute paths into codegen.d; a tree
-    # generated on another machine (or from another folder) is regenerated.
-    depfile = GENERATED / "default" / "codegen.d"
-    if not depfile.is_file():
+    # generated on another machine (or from another folder) is regenerated,
+    # and so is one whose inputs changed (a newer release over this folder).
+    if not DEPFILE.is_file():
         return False
-    return str(ROOT.as_posix()) in depfile.read_text(encoding="utf-8", errors="replace")
+    if str(ROOT.as_posix()) not in DEPFILE.read_text(encoding="utf-8", errors="replace"):
+        return False
+    try:
+        return CODEGEN_STAMP.read_text(encoding="utf-8").strip() == codegen_inputs()
+    except OSError:
+        return False
 
 
 def build_game() -> None:
     if not codegen_current():
         codegen()
+    forget_moved_cache(BUILD)
     run_logged("game-configure", ["cmake", "--preset", PRESET, f"-DREXSDK_DIR={SDK}",
                                   "-DLAVENDER_SHIFT_SHIFTGLUE_KIT=", "-DREXGLUE_ENABLE_TRACY=OFF",
                                   "-DSDL_HIDAPI_LIBUSB=OFF", f"-DPython3_EXECUTABLE={sys.executable}"])

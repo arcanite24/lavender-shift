@@ -134,7 +134,9 @@ jobs:
           version='${{ steps.package.outputs.version }}'
           name="LavenderShift-${version#v}-macos-arm64"
           mkdir -p out/release
-          git -c core.autocrlf=false archive --format=tar.gz --prefix="$name/" -o "out/release/$name.tar.gz" HEAD
+          # One folder name for every version, so a newer release extracts
+          # over the old one and setup reuses its files.
+          git -c core.autocrlf=false archive --format=tar.gz --prefix="LavenderShift-macos-arm64/" -o "out/release/$name.tar.gz" HEAD
           (cd out/release && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
           echo "tarball=out/release/$name.tar.gz" >> "$GITHUB_OUTPUT"
           echo "sha256=$(cut -d' ' -f1 "out/release/$name.tar.gz.sha256")" >> "$GITHUB_OUTPUT"

@@ -27,7 +27,7 @@ then in Terminal:
 ```bash
 cd ~/Downloads
 tar -xzf LavenderShift-<version>-macos-arm64.tar.gz
-cd LavenderShift-<version>-macos-arm64
+cd LavenderShift-macos-arm64
 python3 tools/lavender_mac.py setup --iso ~/Downloads/<FH2 USA disc>.iso \
     --update ~/Downloads/<title update v2>.zip
 python3 tools/lavender_mac.py run
@@ -42,9 +42,11 @@ about 2 to build the translator and translate, 6.5 to compile. It keeps the Mac 
 (`caffeinate`), and each step logs to `.local/logs`. After that, `run` is
 all you need. Saves and settings live in `.local/user` in that folder.
 
-To update, extract the newer release over the same folder (`tar -xzf` into
-the folder's parent) and run `setup` again without `--iso` and `--update`:
-it reuses the extracted files and rebuilds only what changed.
+To update, extract the newer release in the same place (it unpacks into
+the same `LavenderShift-macos-arm64` folder) and run `setup` again without
+`--iso` and `--update`: it keeps the extracted game files, your saves and
+settings, and translates and compiles again only what the new release
+changed.
 
 ## From a checkout
 
