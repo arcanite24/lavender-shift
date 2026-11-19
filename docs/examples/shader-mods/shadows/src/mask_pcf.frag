@@ -1,0 +1,112 @@
+#version 460
+// SR-7: one of the screen-space shadow mask's shaders, 93626E75D17576C5
+// (three draws a frame, one per shadow map). Our code; it keeps the
+// translation's interface.
+//
+// The game's shader rebuilds the view position from the camera depth, takes
+// it into the shadow map with the matrix rows c8/c9/c10 (bias folded in),
+// and averages four manual depth compares on a ring whose rotation is a
+// wrapped ramp across the screen, then adds c24.w. This one keeps the
+// reconstruction, the matrices, the lit-if-stored-is-not-nearer test, the
+// clamps and the c24.w term, and replaces the ring with a 12-tap Poisson
+// disc of the same radius (the mean length of the game's offsets, from
+// c32/c33), rotated per host pixel by interleaved gradient noise, each tap
+// a bilinear-weighted compare of four texels. TAPS 8 is the cheaper set.
+
+#ifndef TAPS
+#define TAPS 12
+#endif
+
+layout(set = 1, binding = 0, std140) uniform XeSystemConstants {
+  layout(offset = 0) uint flags;
+  layout(offset = 288) vec4 color_exp_bias;
+} xe_system;
+
+// Packed: c0 c1 c8 c9 c10 c24 c25 c27 c32 c33 c254 c255.
+layout(set = 1, binding = 2, std140) uniform XeFloatConstants {
+  vec4 c[12];
+} xe_float;
+#define C0 xe_float.c[0]
+#define C1 xe_float.c[1]
+#define C8 xe_float.c[2]
+#define C9 xe_float.c[3]
+#define C10 xe_float.c[4]
+#define C24 xe_float.c[5]
+#define C25 xe_float.c[6]
+#define C32 xe_float.c[8]
+#define C33 xe_float.c[9]
+#define C255 xe_float.c[11]
+
+layout(set = 1, binding = 4, std140) uniform XeFetchConstants {
+  uvec4 words[48];
+} xe_fetch;
+
+layout(set = 3, binding = 0) uniform texture2DArray depth_texture;   // fetch 0
+layout(set = 3, binding = 2) uniform texture2DArray shadow_texture;  // fetch 1
+layout(set = 3, binding = 4) uniform sampler depth_sampler;
+layout(set = 3, binding = 5) uniform sampler shadow_sampler;
+
+layout(location = 0) in vec4 xe_in_interpolator_0;  // clip position
+layout(location = 0) invariant out vec4 xe_out_fragment_data_0;
+
+const vec2 kDisc[12] = vec2[](vec2(0.3156, -0.4162), vec2(0.0004, 0.8267), vec2(0.7468, -0.0023),
+                              vec2(0.4076, 0.3270), vec2(-0.7194, 0.2011), vec2(-0.0511, 0.0427),
+                              vec2(-0.1867, -0.6643), vec2(-0.4108, 0.4946),
+                              vec2(0.7458, -0.6100), vec2(-0.6915, -0.7011),
+                              vec2(-0.7661, -0.2826), vec2(0.6036, 0.7305));
+
+uint FetchWord(uint slot, uint word) {
+  const uint index = slot * 6u + word;
+  return xe_fetch.words[index >> 2u][index & 3u];
+}
+vec2 GuestSize(uint slot) {
+  const uint word = FetchWord(slot, 2u);
+  return vec2(float(bitfieldExtract(word, 0, 13) + 1u), float(bitfieldExtract(word, 13, 13) + 1u));
+}
+float SafeDivide(float a, float b) { return b == 0.0 ? 0.0 : a / b; }
+
+// 1 where the stored depth is not nearer than the receiver, bilinearly
+// weighted over the four texels around the tap.
+float Lit(vec2 uv, float receiver, ivec2 size) {
+  const vec2 position = uv * vec2(size) - 0.5;
+  const ivec2 base = ivec2(floor(position));
+  const vec2 f = position - vec2(base);
+  vec4 lit;
+  for (int i = 0; i < 4; ++i) {
+    const ivec2 at = clamp(base + ivec2(i & 1, i >> 1), ivec2(0), size - 1);
+    lit[i] = texelFetch(sampler2DArray(shadow_texture, shadow_sampler), ivec3(at, 0), 0).r >=
+                     receiver
+                 ? 1.0
+                 : 0.0;
+  }
+  return mix(mix(lit.x, lit.y, f.x), mix(lit.z, lit.w, f.x), f.y);
+}
+
+void main() {
+  const vec4 clip = xe_in_interpolator_0;
+  const vec2 ndc = vec2(SafeDivide(clip.x, clip.w), SafeDivide(clip.y, clip.w));
+  // The depth texel under the pixel (the game samples half a guest texel on).
+  const vec2 depth_uv =
+      vec2(C255.y * ndc.x + C255.y, C255.x * ndc.y + C255.y) + 0.5 / GuestSize(0u);
+  const ivec2 depth_size = textureSize(sampler2DArray(depth_texture, depth_sampler), 0).xy;
+  const ivec2 depth_at = clamp(ivec2(floor(depth_uv * vec2(depth_size))), ivec2(0), depth_size - 1);
+  const float d = texelFetch(sampler2DArray(depth_texture, depth_sampler), ivec3(depth_at, 0), 0).r;
+
+  const float z = SafeDivide(C25.y, (C255.z - C25.x) - d);
+  const vec4 view = vec4(z * SafeDivide(ndc.x - C0.z, C0.x), z * SafeDivide(ndc.y - C1.z, C1.y), z, 1.0);
+  const vec2 st = clamp(vec2(dot(C8, view), dot(C9, view)), 0.0, 1.0);
+  const float receiver = clamp(dot(C10.xyz, view.xyz) + C10.w, 0.0, 1.0);
+
+  // The game's ring radius, in shadow-map UV.
+  const float radius = 0.25 * (length(C32.xy) + length(C32.zw) + length(C33.xy) + length(C33.zw));
+  const float angle =
+      6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  const mat2 rotation = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+  const ivec2 shadow_size = textureSize(sampler2DArray(shadow_texture, shadow_sampler), 0).xy;
+  float lit = 0.0;
+  for (int i = 0; i < TAPS; ++i) {
+    lit += Lit(st + rotation * kDisc[i] * radius, receiver, shadow_size);
+  }
+  const float value = lit / float(TAPS) + C24.w;
+  xe_out_fragment_data_0 = vec4(value, 1.0, 0.0, 0.0) * xe_system.color_exp_bias.x;
+}

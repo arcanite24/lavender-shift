@@ -1,8 +1,12 @@
 # SR-7: shadow quality. Build with tools/build-shader-mod.py; --define
-# RADIUS=2 for a blur twice as wide.
-name = "shadow-blur"
+# RADIUS=2 for a blur twice as wide, TAPS=8 for the cheaper mask.
+name = "shadow-quality"
 version = "1"
 
 [[shader]]
 guest = "58CE51CE56247C16"
 source = "src/mask_blur.frag"
+
+[[shader]]
+guest = "93626E75D17576C5"
+source = "src/mask_pcf.frag"

@@ -123,13 +123,15 @@ vec3 AltCurve(vec3 colour) {
 }
 #elif CURVE == 3
 // An AgX-like curve: a log2 encoding over 16.5 stops around mid-grey and a
-// sigmoid, per channel (our own fit, no AgX matrices).
+// logistic sigmoid, per channel (our own fit, no AgX matrices). Mid-grey
+// (0.756 in the encoding) comes out near 0.23 linear.
 vec3 AltCurve(vec3 x) {
-  const float min_ev = -12.47, max_ev = 4.03;
+  const float min_ev = -12.47, max_ev = 4.03, centre = 0.77, slope = 10.0;
   const vec3 v = clamp((log2(max(x, 1e-10) / 0.18) - min_ev) / (max_ev - min_ev), 0.0, 1.0);
-  const vec3 s = 1.0 / (1.0 + exp(-12.0 * (v - 0.606)));
-  const float lo = 1.0 / (1.0 + exp(12.0 * 0.606)), hi = 1.0 / (1.0 + exp(-12.0 * 0.394));
-  return pow((s - lo) / (hi - lo), vec3(2.2));
+  const vec3 s = 1.0 / (1.0 + exp(-slope * (v - centre)));
+  const float lo = 1.0 / (1.0 + exp(slope * centre));
+  const float hi = 1.0 / (1.0 + exp(-slope * (1.0 - centre)));
+  return pow(clamp((s - lo) / (hi - lo), 0.0, 1.0), vec3(2.2));
 }
 #endif
 
