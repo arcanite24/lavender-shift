@@ -112,11 +112,19 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
     return config_.Get(name).value_or(Live(name));
   }
 
-  static int Find(const std::vector<Choice>& choices) {
+  // A setting the SDK applies only at the next start.
+  static bool NextStart(const std::string& name) {
+    const auto* flag = rex::cvar::GetFlagInfo(name);
+    return flag && flag->lifecycle == rex::cvar::Lifecycle::kRequiresRestart;
+  }
+  // The running values, but the saved one for a setting that waits for the
+  // next start, so a choice made this session still shows as chosen.
+  int Find(const std::vector<Choice>& choices) const {
     for (size_t i = 0; i < choices.size(); ++i) {
       bool all = true;
       for (const auto& [name, literal] : choices[i].values) {
-        all = all && SameValue(Live(name), Unquote(literal));
+        const std::string value = NextStart(name) ? Unquote(Saved(name)) : Live(name);
+        all = all && SameValue(value, Unquote(literal));
       }
       if (all) {
         return int(i);
@@ -181,15 +189,23 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
 
 // The row shows the choice that matches the running values (CUSTOM when
 // none does) and applies the next one at once: every value is set live and
-// saved. A setting the SDK still marks as needing a restart is logged, since
-// the menu must not offer one (it would silently do nothing until then).
+// saved. A live row may carry settings that need a restart (GRAPHICS PRESET's
+// shader translation): those are only saved, matched against the file, and
+// the row shows the RESTART badge while a saved one differs from the running
+// one. Any other setting that does not apply live is logged, since the menu
+// must not offer one (it would silently do nothing).
 MenuRow SettingsPages::Setting(std::string label, std::vector<Choice> choices,
                                bool restart) {
+  auto next_start = std::make_shared<std::vector<std::string>>();
   for (const auto& choice : choices) {
     for (const auto& [name, literal] : choice.values) {
       const auto* flag = rex::cvar::GetFlagInfo(name);
       if (!flag) {
         REXLOG_WARN("Settings: {} offers unknown setting {}", label, name);
+      } else if (!restart && flag->lifecycle == rex::cvar::Lifecycle::kRequiresRestart) {
+        if (std::find(next_start->begin(), next_start->end(), name) == next_start->end()) {
+          next_start->push_back(name);
+        }
       } else if (!restart && flag->lifecycle != rex::cvar::Lifecycle::kHotReload) {
         REXLOG_WARN("Settings: {} sets {}, which does not apply live", label, name);
       }
@@ -197,12 +213,22 @@ MenuRow SettingsPages::Setting(std::string label, std::vector<Choice> choices,
   }
   MenuRow row;
   row.label = std::move(label);
+  if (!next_start->empty()) {
+    // Not the SDK's pending list: loading the settings file marks every
+    // restart setting in it pending.
+    row.restart_pending = [this, next_start] {
+      for (const auto& name : *next_start) {
+        if (!SameValue(Unquote(Saved(name)), Live(name))) return true;
+      }
+      return false;
+    };
+  }
   auto shared = std::make_shared<std::vector<Choice>>(std::move(choices));
   row.value = [this, shared, restart] {
     const int index = restart ? FindSaved(*shared) : Find(*shared);
     return index >= 0 ? (*shared)[size_t(index)].label : std::string("CUSTOM");
   };
-  row.adjust = [this, shared, restart, label = row.label](int direction) {
+  row.adjust = [this, shared, restart, next_start, label = row.label](int direction) {
     const auto& choices = *shared;
     const int count = int(choices.size());
     const int current = restart ? FindSaved(choices) : Find(choices);
@@ -210,7 +236,10 @@ MenuRow SettingsPages::Setting(std::string label, std::vector<Choice> choices,
     std::string values;
     for (const auto& [name, literal] : choices[size_t(next)].values) {
       config_.Set(name, literal);
-      rex::cvar::SetFlagByName(name, Unquote(literal));
+      // A restart setting keeps its running value until the next start.
+      if (std::find(next_start->begin(), next_start->end(), name) == next_start->end()) {
+        rex::cvar::SetFlagByName(name, Unquote(literal));
+      }
       values += (values.empty() ? "" : " ") + name + "=" + Unquote(literal);
     }
     diagnostics::RecordEvent("settings.changed", {{"row", label},
@@ -945,16 +974,31 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
     }
     return values;
   };
-  const std::vector<std::pair<std::string, std::string>> cheapest = {
+  std::vector<std::pair<std::string, std::string>> cheapest = {
       {"anisotropic_override", "-1"},
       {"swap_post_effect", "\"none\""},
       {"swap_morphological_aa", "false"}};
+  std::vector<std::pair<std::string, std::string>> console = {{"lavender_frame_rate", "\"30\""}};
+  std::vector<std::pair<std::string, std::string>> full_math;
+#if defined(_WIN32)
+  // Pixel shader translation for weak GPUs (texture signs as specialization
+  // constants, fast pixel math, implicit LOD for 2D fetches), from the next
+  // start. On blindvac's Intel UHD 620 it cut Pinyon Shift's GPU frame 26-32 %
+  // with no visible change (its LOW_SPEC_BACKLOG LS-6.6), and FH2 there:
+  // docs/PINYON_PARITY.md LP-1.15. The other presets set the SDK's Windows
+  // defaults back; Android keeps its own (on).
+  for (const char* name :
+       {"spirv_specialize_texture_signs", "spirv_fast_pixel_math", "spirv_implicit_lod_2d"}) {
+    cheapest.emplace_back(name, "true");
+    console.emplace_back(name, "false");
+    full_math.emplace_back(name, "false");
+  }
+#endif
   rows.push_back(Setting("GRAPHICS PRESET",
-                         {{"CONSOLE", preset("1", "\"bilinear\"", "false",
-                                             {{"lavender_frame_rate", "\"30\""}})},
+                         {{"CONSOLE", preset("1", "\"bilinear\"", "false", console)},
                           {"LOW-SPEC", preset("1", "\"bilinear\"", "true", cheapest)},
-                          {"PERFORMANCE", preset("1", "\"fsr\"", "false")},
-                          {"QUALITY", preset("2", "\"bilinear\"", "false")}}));
+                          {"PERFORMANCE", preset("1", "\"fsr\"", "false", full_math)},
+                          {"QUALITY", preset("2", "\"bilinear\"", "false", full_math)}}));
   {
     std::vector<Choice> scales;
     for (int scale = 1; scale <= 4; ++scale) {

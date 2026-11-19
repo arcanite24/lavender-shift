@@ -255,6 +255,14 @@ void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
     for (const auto& key : lavender_shift::config::kDefaultKeys) {
       file << key.name << " = " << lavender_shift::config::Quote(key.keys) << "\n";
     }
+#if defined(_WIN32)
+    // LOW-SPEC's shader translation (src/ui/settings_menu.cpp, GRAPHICS
+    // PRESET). It needs a restart, so it goes in before the GPU starts; a
+    // capable machine sets it back for the next start (ApplyFirstRunDefaults).
+    file << "spirv_specialize_texture_signs = true\n"
+            "spirv_fast_pixel_math = true\n"
+            "spirv_implicit_lod_2d = true\n";
+#endif
   }
   host_config_ = std::make_unique<lavender_shift::config::HostConfig>(paths.config_path);
   // Mods that change more than how the game looks or sounds play a separate
@@ -823,7 +831,22 @@ void LavenderShiftApp::ApplyFirstRunDefaults() {
   const bool capable = discrete && device_local >= (uint64_t(4) << 30) && cores >= 6;
   REXLOG_INFO("First run on {} ({} MB, {} cores): {}", properties.deviceName, device_local >> 20,
               cores, capable ? "PERFORMANCE" : "LOW-SPEC, 60 fps");
-  if (capable) return;
+  if (capable) {
+#if defined(_WIN32)
+    // PERFORMANCE's shader translation, from the next start: the translator
+    // has read the new file's LOW-SPEC values by now.
+    if (host_config_->Load()) {
+      for (const char* name :
+           {"spirv_specialize_texture_signs", "spirv_fast_pixel_math", "spirv_implicit_lod_2d"}) {
+        host_config_->Set(name, "false");
+      }
+      if (!host_config_->Save()) {
+        REXLOG_ERROR("Settings: could not write {}", host_config_->path().string());
+      }
+    }
+#endif
+    return;
+  }
   // The GRAPHICS PRESET row's LOW-SPEC (src/ui/settings_menu.cpp), at 60 fps.
   static constexpr std::pair<const char*, const char*> kLowSpec[] = {
       {"present_effect", "\"bilinear\""}, {"fh1_msaa_single_sample", "true"},
