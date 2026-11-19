@@ -1,8 +1,21 @@
-# SR-24: the sky's horizon band. Build with tools/build-shader-mod.py;
-# --define PHASE=1 for a Henyey-Greenstein sun lobe.
+# SR-24: the sky. Build with tools/build-shader-mod.py; --define PHASE=1 for
+# a Henyey-Greenstein sun lobe on the horizon band, CUBIC=1 for bicubic
+# cloud textures, NOISE=1 for a triangular dither on the dome.
 name = "sky-horizon"
-version = "1"
+version = "2"
 
 [[shader]]
 guest = "EE3FFB69590792A2"
 source = "src/horizon.frag"
+
+[[shader]]
+guest = "2FD6A7CBEBD253C5"
+source = "src/dome.frag"
+
+[[shader]]
+guest = "90CAB86BE8159DA8"
+source = "src/clouds.frag"
+
+[[shader]]
+guest = "FD9976C9E5DB9BB0"
+source = "src/panorama.frag"

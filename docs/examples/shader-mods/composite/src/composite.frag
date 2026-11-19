@@ -54,6 +54,17 @@
 //           light) in place of the game's: the scene is mixed towards the
 //           pyramid's average by POST_BLOOM (default 0.04), which keeps the
 //           frame's level where the game's thresholded bloom adds light.
+//   EXPOSURE 1 (with POST): our exposure in place of the game's metering:
+//           the alpha of binding 10 less 16 (scene_bloom: scene_exposure_key
+//           less a centre-weighted log2 average of the float scene's
+//           luminance, adapted at scene_exposure_speed). Until a frame is
+//           metered (alpha 0) the game's is used. EXPOSURE 2 is a check: red the
+//           game's log2 exposure, green ours, each 0.5 + value / 16, blue
+//           0.5 + (ours - game's) / 4.
+//   GRADIENT 1: a check for SR-12's banding gate: the scene's luminance
+//           before exposure, as its square root halved, split over red (the
+//           top 8 bits) and green (the next 8), so a replay's PNG keeps 16
+//           bits of it and the levels along a sky gradient can be counted.
 
 #ifndef CURVE
 #define CURVE 0
@@ -78,6 +89,12 @@
 #endif
 #ifndef POST
 #define POST 0
+#endif
+#ifndef EXPOSURE
+#define EXPOSURE 0
+#endif
+#ifndef GRADIENT
+#define GRADIENT 0
 #endif
 #ifndef POST_BLOOM
 #define POST_BLOOM 0.04
@@ -403,8 +420,34 @@ void main() {
   const vec3 linear = scene + bloom * bloom;
 #endif
 
+#if GRADIENT
+  {
+    const float v = clamp(0.5 * sqrt(max(dot(linear, vec3(0.2126, 0.7152, 0.0722)), 0.0)), 0.0,
+                          1.0) * 65535.0;
+    const float high = floor(v / 256.0);
+    xe_out_fragment_data_0 =
+        vec4(high / 255.0, floor(v - high * 256.0) / 255.0, 0.0, 1.0) * xe_system.color_exp_bias.x;
+    return;
+  }
+#endif
   // 3-5. Exposure, the curve, the LUT.
+#if POST && EXPOSURE
+  const float metered = textureLod(xe_host_scene_bloom, uv, 0.0).a;
+  const float game_exposure = xe_in_interpolator_1.w;
+  const float our_exposure = metered > 0.0 ? metered - 16.0 : game_exposure;
+#if EXPOSURE == 2
+  xe_out_fragment_data_0 =
+      vec4(clamp(vec3(0.5 + game_exposure / 16.0, 0.5 + our_exposure / 16.0,
+                      0.5 + (our_exposure - game_exposure) / 4.0),
+                 0.0, 1.0),
+           1.0) *
+      xe_system.color_exp_bias.x;
+  return;
+#endif
+  const vec3 exposed = exp2(our_exposure) * linear;
+#else
   const vec3 exposed = exp2(xe_in_interpolator_1.w) * linear;
+#endif
   const float white = xe_in_interpolator_1.z;
   vec3 curved = GameCurve(exposed);
 #if CURVE != 0
