@@ -321,9 +321,10 @@ void LavenderShiftApp::MountMods() {
                              {"edits", std::to_string(result.applied)},
                              {"problems", std::to_string(result.problems.size())}});
   }
-  // mods_log_game_files needs the overlay even with no mod files under it.
+  // mods_log_game_files needs the overlay even with no mod files under it;
+  // an empty folder of its own, never data-patches, whose files may be stale.
   if (game_roots.empty() && !rex::cvar::GetFlagByName("mods_log_game_files").empty()) {
-    auto empty = photos_dir_.parent_path() / "cache" / "data-patches";
+    auto empty = photos_dir_.parent_path() / "cache" / "empty-overlay";
     std::error_code error;
     std::filesystem::create_directories(empty, error);
     game_roots.push_back(std::move(empty));
