@@ -1,0 +1,8 @@
+# SR-1: our own composite. Build with tools/build-shader-mod.py; choose a
+# variant with --define CURVE=0..3, DITHER=0/1, BLUR_TAPS=5.. and --name.
+name = "composite"
+version = "1"
+
+[[shader]]
+guest = "614588022744BF6B"
+source = "src/composite.frag"
