@@ -26,6 +26,7 @@
 
 #include "config/default_keys.h"
 #include "manual_save.h"
+#include "mods/mods.h"
 #include "save_backups.h"
 #include "save_sync.h"
 #include "ui/music.h"
@@ -159,6 +160,7 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
   std::unique_ptr<MenuScreen> Audio();
   std::unique_ptr<MenuScreen> Gameplay();
   std::unique_ptr<MenuScreen> Debug();
+  std::unique_ptr<MenuScreen> Mods();
   std::unique_ptr<MenuScreen> Cheats();
   std::unique_ptr<MenuScreen> Controls();
   std::unique_ptr<MenuScreen> ControllerButtons();
@@ -831,6 +833,51 @@ std::unique_ptr<MenuScreen> SettingsPages::Debug() {
   auto screen = std::make_unique<MenuScreen>("DEBUG", std::move(rows));
   screen->set_body("Logs go to the file named by --log_file. Input views replace the picture "
                    "only while OUTPUT SCALING is DLSS, FSR 2 or FSR 3.");
+  return screen;
+}
+
+// The loaded mods and texture modding (issue #5 SR-13). The texture rows act
+// for this session only and are not saved.
+std::unique_ptr<MenuScreen> SettingsPages::Mods() {
+  std::vector<MenuRow> rows;
+  MenuRow reload;
+  reload.label = "RELOAD TEXTURES";
+  reload.activate = [] {
+    const auto count = Number(Live("texture_replacement_reload")).value_or(0);
+    rex::cvar::SetFlagByName("texture_replacement_reload", std::to_string(int(count) + 1));
+    diagnostics::RecordEvent("mods.textures.reload");
+  };
+  rows.push_back(std::move(reload));
+  if (!services_.texture_dumps_dir.empty()) {
+    MenuRow dump;
+    dump.label = "DUMP TEXTURES";
+    dump.value = [] { return std::string(Live("texture_dump_dir").empty() ? "OFF" : "ON"); };
+    dump.adjust = [dir = services_.texture_dumps_dir](int) {
+      const bool on = Live("texture_dump_dir").empty();
+      rex::cvar::SetFlagByName("texture_dump_dir", on ? rex::path_to_utf8(dir) : std::string());
+      diagnostics::RecordEvent("mods.textures.dump", {{"on", on ? "true" : "false"}});
+    };
+    dump.activate = [adjust = dump.adjust] { adjust(1); };
+    rows.push_back(std::move(dump));
+  }
+  for (const auto& mod : mods::Mods()) {
+    MenuRow row;
+    std::string label = mod.name;
+    for (char& c : label) c = char(std::toupper(static_cast<unsigned char>(c)));
+    row.label = std::move(label);
+    row.value = [loaded = mod.loaded] { return std::string(loaded ? "LOADED" : "NOT LOADED"); };
+    rows.push_back(std::move(row));
+  }
+  auto screen = std::make_unique<MenuScreen>("MODS", std::move(rows));
+  std::string body =
+      "RELOAD TEXTURES rescans the mods' textures folders and loads every texture again. "
+      "DUMP TEXTURES writes each texture the game loads, once, as <hash>.dds";
+  if (!services_.texture_dumps_dir.empty()) {
+    body += " into " + rex::path_to_utf8(services_.texture_dumps_dir);
+  }
+  body += "; tools/texture-pack.py builds a pack from them. Mods are chosen with enabled_mods "
+          "and load at the next start.";
+  screen->set_body(std::move(body));
   return screen;
 }
 
@@ -1760,6 +1807,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Root() {
   rows.push_back(Page("CONTROLS", &SettingsPages::Controls));
   rows.push_back(Page("GAMEPLAY", &SettingsPages::Gameplay));
   rows.push_back(Page("CHEATS", &SettingsPages::Cheats));
+  rows.push_back(Page("MODS", &SettingsPages::Mods));
   if (services_.save_backups || services_.save_sync) {
     rows.push_back(Page("PROFILE", &SettingsPages::Profile));
   }

@@ -36,6 +36,8 @@ struct SettingsServices {
   std::function<void()> quit;
   // The player's .cube colour LUTs; no COLOUR LUT row without one.
   std::filesystem::path luts_dir;
+  // Where DUMP TEXTURES writes; no row without it.
+  std::filesystem::path texture_dumps_dir;
   // The save backups; no SAVE BACKUPS row without them.
   SaveBackups* save_backups = nullptr;
   // Save sync; no SAVE SYNC row without it.
