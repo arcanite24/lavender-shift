@@ -121,3 +121,6 @@ technology as [Pinyon Shift](https://github.com/arcanite24/pinyon-shift)
 
 Developers: see [Building from a checkout](docs/BUILDING.md) and
 [docs/LEGAL.md](docs/LEGAL.md).
+
+How this port and its two siblings were built, and what they measured, is
+collected in [Recompiling Xbox 360 Games](https://neri.deimos.studio/recomp/).
