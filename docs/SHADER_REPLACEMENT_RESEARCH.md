@@ -12,18 +12,50 @@ this needs. Pinyon Shift built it for FH1 ([its MODDING.md](https://github.com/a
 - **Replacement by identity.** A SPIR-V file named
   `shader_<guest hash>_<modification>_<translated hash>.spv` in a mod's
   `shaders/` folder, or in `vulkan_shader_override_dirs`, replaces that one
-  translation. If the driver rejects the file, the original translation is
-  used instead. `vulkan_shader_overrides=false` turns every replacement off.
-  A replacement must keep the original's bindings, inputs and outputs: the
-  guest still sets the constants and textures.
-- **Discovery.** `vulkan_shader_discovery_frame=N` records one frame's
-  draws, sampled bindings, resolves and shader identities.
-  `tools/discover-fh1-shaders.py` (Pinyon's) turns that record into a
-  per-shader report, with no disassembly.
+  translation. The translated hash changes with the resolution scale, the
+  platform and any translator change, so a replacement may instead be
+  named `shader_<guest hash>_<modification>.spv` or `shader_<guest hash>.spv`
+  (SR-9): every root's exact name is tried first, then those, root by
+  root, and one such file serves every translation of that guest shader it
+  fits. `vulkan_shader_overrides=false` turns every replacement off.
+- **Interface check.** A replacement is used only when it fits the
+  translation: the same stage, only bindings the translation has (same set,
+  binding and type, no more array elements or uniform bytes), no inputs the
+  translation lacks, and exactly its outputs. A file that does not fit is
+  logged with the reason and the translation is used. If the driver rejects
+  the module, or a pipeline built with it, that translation or that
+  pipeline uses the original. The guest still sets the constants and
+  textures. A replacement keyed by guest hash alone that fetches with
+  unnormalised coordinates must scale them itself, since the translation
+  bakes the resolution scale in as constants.
+- **Exact names.** `tools/shader-override-names.py` copies guest-named
+  replacements to the exact names a discovery frame recorded, for authors
+  who want one file per translation.
+- **Discovery.** `vulkan_shader_discovery_frame=N` with
+  `vulkan_shader_discovery_dir` records one frame's draws, sampled
+  bindings, resolves and shader identities. `tools/discover-shaders.py`
+  (ported from Pinyon's) turns that record into a per-shader report, with
+  no disassembly; `--check-mod <mod>/shaders` says which replacements match
+  the frame, are stale, or are guest names and for which translations.
+- **Frame replay A/B (SR-8).** `fh1_frame_dump_frame=-1` with
+  `fh1_frame_dump_path` saves the next whole frame. `tools/frame-replay.py
+  ab <dump> --out <dir> --a <spec> --b <spec>` replays it twice, each spec
+  a comma list of `shaders=<dir>` and `cvar=value`, and writes both images
+  with a PSNR, the largest channel difference and a diff image;
+  `replay`, `compare` and `decode` run the steps alone. A replay suspends
+  the title and exits when done, but it still starts the game, so run it
+  when nothing else is using it.
 - **Cost per pass and per shader.** `fh1_native_gpu_profile` times each
   rendering. `fh1_debug_skip_renderings` with `fh1_debug_skip_pixel_shader`
   knocks out one shader's draws live, which gives a ceiling on what
   replacing that shader could save.
+
+- **Data patches (SR-16).** A mod's `patches.toml` edits attributes of the
+  game's XML files (TrackSettings, the TimeOfDay files) by element path,
+  set, scaled or added to, and the patched copy is served from the
+  player's cache over the disc's and the mods' files
+  (`src/mods/data_patches.h`, sample in `docs/examples/data-patches/`).
+  `mods_log_game_files=.xml` logs which files the title opens.
 
 A replacement is our own GLSL compiled to SPIR-V, written from the pass's
 inputs and outputs. Translated guest shaders and captures stay in `.local/`

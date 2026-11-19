@@ -14,6 +14,8 @@ namespace lavender_shift::mods {
 //   textures/  texture replacements (<hash>.dds, the SDK's
 //              texture_replacement_dirs)
 //   shaders/   shader overrides (the SDK's vulkan_shader_override_dirs)
+//   patches.toml  edits to the game's XML files, applied to the file the
+//              game would read (src/mods/data_patches.h)
 //
 // mod.toml is flat: name (the folder's name), version, shares_save (true for
 // a mod that changes only how the game looks or sounds), and optional lists

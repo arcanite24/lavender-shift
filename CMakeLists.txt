@@ -59,6 +59,7 @@ set(LAVENDER_SHIFT_SOURCES
     src/ui/photo_export.cpp
     src/ui/png_writer.cpp
     src/config/host_config.cpp
+    src/mods/data_patches.cpp
     src/mods/immersive_camera.cpp
     src/mods/mods.cpp
     src/mods/archive_checks.cpp

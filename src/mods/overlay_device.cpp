@@ -3,11 +3,17 @@
 #include <mutex>
 #include <set>
 
+#include <rex/cvar.h>
 #include <rex/filesystem/entry.h>
 #include <rex/logging.h>
 #include <rex/filesystem.h>
 
 #include "diagnostics.h"
+
+REXCVAR_DEFINE_STRING(mods_log_game_files, "", "Mods",
+                      "Log each game file the title opens whose path contains this text, once "
+                      "(for example .xml, or * for every file); empty: off")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 namespace lavender_shift::mods {
 
@@ -91,7 +97,34 @@ bool IsOverriddenGamePath(std::string_view guest_path) {
   return false;
 }
 
+namespace {
+
+std::mutex g_logged_mutex;
+std::set<std::string, std::less<>> g_logged;
+
+// mods_log_game_files: which game files the title reads, to see whether a
+// data patch's file is used at all (issue #5 SR-16).
+void LogGameFile(std::string_view path) {
+  static const std::string filter = [] {
+    std::string text = REXCVAR_GET(mods_log_game_files);
+    for (char& c : text) c = c >= 'A' && c <= 'Z' ? char(c - 'A' + 'a') : c;
+    return text;
+  }();
+  if (filter.empty()) return;
+  const std::string normal = NormalizeGamePath(path);
+  if (filter != "*" && normal.find(filter) == std::string::npos) return;
+  {
+    std::lock_guard lock(g_logged_mutex);
+    if (!g_logged.insert(normal).second) return;
+  }
+  REXLOG_INFO("Mods: the game opened {}", path);
+  diagnostics::RecordEvent("mod.file.read", {{"path", std::string(path)}});
+}
+
+}  // namespace
+
 rex::filesystem::Entry* OverlayDevice::ResolvePath(std::string_view path) {
+  if (!path.empty()) LogGameFile(path);
   if (!path.empty()) {
     for (const auto& overlay : overlays_) {
       rex::filesystem::Entry* entry = overlay->ResolvePath(path);

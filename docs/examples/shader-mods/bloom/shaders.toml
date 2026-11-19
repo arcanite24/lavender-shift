@@ -1,0 +1,17 @@
+# SR-2: bloom kernels. Build with tools/build-shader-mod.py.
+name = "bloom-kernels"
+version = "1"
+
+[[shader]]
+guest = "D6652B8E4866F16B"
+source = "src/bloom_half.frag"
+defines = ["AXIS=0"]
+
+[[shader]]
+guest = "0732AB80912AE1A0"
+source = "src/bloom_half.frag"
+defines = ["AXIS=1"]
+
+[[shader]]
+guest = "0F5712A5F9D13E62"
+source = "src/bloom_up.frag"

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -25,6 +26,7 @@
 
 #include "config/default_keys.h"
 #include "manual_save.h"
+#include "mods/mods.h"
 #include "save_backups.h"
 #include "save_sync.h"
 #include "ui/music.h"
@@ -158,6 +160,7 @@ class SettingsPages : public std::enable_shared_from_this<SettingsPages> {
   std::unique_ptr<MenuScreen> Audio();
   std::unique_ptr<MenuScreen> Gameplay();
   std::unique_ptr<MenuScreen> Debug();
+  std::unique_ptr<MenuScreen> Mods();
   std::unique_ptr<MenuScreen> Cheats();
   std::unique_ptr<MenuScreen> Controls();
   std::unique_ptr<MenuScreen> ControllerButtons();
@@ -265,7 +268,8 @@ std::string SettingsPages::ResolutionLine() const {
     }
     return line + ", SHOWN AT THAT SIZE";
   }
-  std::string upscaler = SameValue(effect, "fsr") ? ", FSR 1 UPSCALES TO "
+  std::string upscaler = SameValue(effect, "fsr")   ? ", FSR 1 UPSCALES TO "
+                         : SameValue(effect, "gsr") ? ", GSR UPSCALES TO "
                          : IsTemporalEffect(effect)
                              ? ", " + TemporalUpscalerLabel(effect) + " UPSCALES TO "
                              : std::string(", STRETCHED TO ");
@@ -381,6 +385,13 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
         services_.upscalers ? services_.upscalers() : std::vector<rex::ui::UpscalerInfo>{};
     std::stable_sort(upscalers.begin(), upscalers.end(),
                      [](const auto& a, const auto& b) { return a.id < b.id; });
+    // Snapdragon GSR 1, spatial like FSR 1, in the presenters that have it
+    // (Vulkan).
+    for (const rex::ui::UpscalerInfo& info : upscalers) {
+      if (info.id == "gsr" && info.available) {
+        scaling.push_back({"GSR", {{"present_effect", "\"gsr\""}}});
+      }
+    }
     for (const rex::ui::UpscalerInfo& info : upscalers) {
       if (info.kind == rex::ui::UpscalerKind::kTemporal && info.available) {
         scaling.push_back(
@@ -389,11 +400,40 @@ std::unique_ptr<MenuScreen> SettingsPages::Display() {
     }
     rows.push_back(Setting("OUTPUT SCALING", std::move(scaling)));
   }
-  rows.push_back(Setting("SHARPENING", {{"OFF", {{"present_fsr_sharpness_reduction", "2.0"}}},
-                                        {"LOW", {{"present_fsr_sharpness_reduction", "1.0"}}},
-                                        {"MEDIUM", {{"present_fsr_sharpness_reduction", "0.5"}}},
-                                        {"HIGH", {{"present_fsr_sharpness_reduction", "0.2"}}},
-                                        {"MAX", {{"present_fsr_sharpness_reduction", "0.0"}}}}));
+  // RCAS's sharpness (FSR 1 and the temporal upscalers) or, under CAS, CAS's
+  // own: each effect keeps its level. CAS always sharpens: 0, its default,
+  // is its usual amount and 1 its most. GSR has no RCAS pass; its edge
+  // sharpening is fixed.
+  {
+    MenuRow rcas = Setting("SHARPENING", {{"OFF", {{"present_fsr_sharpness_reduction", "2.0"}}},
+                                          {"LOW", {{"present_fsr_sharpness_reduction", "1.0"}}},
+                                          {"MEDIUM", {{"present_fsr_sharpness_reduction", "0.5"}}},
+                                          {"HIGH", {{"present_fsr_sharpness_reduction", "0.2"}}},
+                                          {"MAX", {{"present_fsr_sharpness_reduction", "0.0"}}}});
+    MenuRow cas = Setting("SHARPENING", {{"LOW", {{"present_cas_additional_sharpness", "0.0"}}},
+                                         {"MEDIUM", {{"present_cas_additional_sharpness", "0.33"}}},
+                                         {"HIGH", {{"present_cas_additional_sharpness", "0.67"}}},
+                                         {"MAX", {{"present_cas_additional_sharpness", "1.0"}}}});
+    const auto under_cas = [] { return SameValue(Unquote(Live("present_effect")), "cas"); };
+    MenuRow sharpening;
+    sharpening.label = "SHARPENING";
+    sharpening.enabled = [] { return !SameValue(Unquote(Live("present_effect")), "gsr"); };
+    sharpening.value = [under_cas, rcas = rcas.value, cas = cas.value] {
+      return under_cas() ? cas() : rcas();
+    };
+    sharpening.adjust = [under_cas, rcas = rcas.adjust, cas = cas.adjust](int direction) {
+      if (under_cas()) {
+        cas(direction);
+      } else {
+        rcas(direction);
+      }
+    };
+    rows.push_back(std::move(sharpening));
+  }
+  // Against banding: the presenter's last pass dithers the game's 10-bit
+  // frame down to the window's format when that pass is bilinear, CAS or
+  // FSR 1's RCAS; GSR's pass does not dither.
+  rows.push_back(Toggle("DITHERING", "present_dither"));
   rows.push_back(Page("UPSCALING AND FRAME GENERATION", &SettingsPages::Upscaling));
 #if defined(_WIN32)
   // Windows HDR on for the game's display while it runs and back off when it
@@ -494,6 +534,15 @@ std::unique_ptr<MenuScreen> SettingsPages::Upscaling() {
                                           {"K (TRANSFORMER)", {{"present_dlss_preset", "\"k\""}}},
                                           {"L (TRANSFORMER 2)", {{"present_dlss_preset", "\"l\""}}},
                                           {"M (TRANSFORMER 2)", {{"present_dlss_preset", "\"m\""}}}}));
+  }
+  // ShiftGlue's texture_mip_lod_bias_upscaler: under FSR 2/3 or DLSS each
+  // texture picks the mip the output size would, log2(render / output) on
+  // top of TEXTURE DETAIL (whose SHARPEST adds the vendors' further -1).
+  if (TemporalUpscalerAvailable("dlss") || TemporalUpscalerAvailable("fsr2") ||
+      TemporalUpscalerAvailable("fsr3")) {
+    rows.push_back(Setting("UPSCALED TEXTURE DETAIL",
+                           {{"OUTPUT SIZE", {{"texture_mip_lod_bias_upscaler", "true"}}},
+                            {"RENDER SIZE", {{"texture_mip_lod_bias_upscaler", "false"}}}}));
   }
   rows.push_back(Toggle("HUD KEPT OUT OF GENERATED FRAMES", "present_frame_generation_hud"));
   if (offered(generators, "lsfg")) {
@@ -787,6 +836,51 @@ std::unique_ptr<MenuScreen> SettingsPages::Debug() {
   return screen;
 }
 
+// The loaded mods and texture modding (issue #5 SR-13). The texture rows act
+// for this session only and are not saved.
+std::unique_ptr<MenuScreen> SettingsPages::Mods() {
+  std::vector<MenuRow> rows;
+  MenuRow reload;
+  reload.label = "RELOAD TEXTURES";
+  reload.activate = [] {
+    const auto count = Number(Live("texture_replacement_reload")).value_or(0);
+    rex::cvar::SetFlagByName("texture_replacement_reload", std::to_string(int(count) + 1));
+    diagnostics::RecordEvent("mods.textures.reload");
+  };
+  rows.push_back(std::move(reload));
+  if (!services_.texture_dumps_dir.empty()) {
+    MenuRow dump;
+    dump.label = "DUMP TEXTURES";
+    dump.value = [] { return std::string(Live("texture_dump_dir").empty() ? "OFF" : "ON"); };
+    dump.adjust = [dir = services_.texture_dumps_dir](int) {
+      const bool on = Live("texture_dump_dir").empty();
+      rex::cvar::SetFlagByName("texture_dump_dir", on ? rex::path_to_utf8(dir) : std::string());
+      diagnostics::RecordEvent("mods.textures.dump", {{"on", on ? "true" : "false"}});
+    };
+    dump.activate = [adjust = dump.adjust] { adjust(1); };
+    rows.push_back(std::move(dump));
+  }
+  for (const auto& mod : mods::Mods()) {
+    MenuRow row;
+    std::string label = mod.name;
+    for (char& c : label) c = char(std::toupper(static_cast<unsigned char>(c)));
+    row.label = std::move(label);
+    row.value = [loaded = mod.loaded] { return std::string(loaded ? "LOADED" : "NOT LOADED"); };
+    rows.push_back(std::move(row));
+  }
+  auto screen = std::make_unique<MenuScreen>("MODS", std::move(rows));
+  std::string body =
+      "RELOAD TEXTURES rescans the mods' textures folders and loads every texture again. "
+      "DUMP TEXTURES writes each texture the game loads, once, as <hash>.dds";
+  if (!services_.texture_dumps_dir.empty()) {
+    body += " into " + rex::path_to_utf8(services_.texture_dumps_dir);
+  }
+  body += "; tools/texture-pack.py builds a pack from them. Mods are chosen with enabled_mods "
+          "and load at the next start.";
+  screen->set_body(std::move(body));
+  return screen;
+}
+
 // Cheats act on the player's own profile (src/cheats.cpp).
 std::unique_ptr<MenuScreen> SettingsPages::Cheats() {
   std::vector<MenuRow> rows;
@@ -852,7 +946,9 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
     return values;
   };
   const std::vector<std::pair<std::string, std::string>> cheapest = {
-      {"anisotropic_override", "-1"}, {"swap_post_effect", "\"none\""}};
+      {"anisotropic_override", "-1"},
+      {"swap_post_effect", "\"none\""},
+      {"swap_morphological_aa", "false"}};
   rows.push_back(Setting("GRAPHICS PRESET",
                          {{"CONSOLE", preset("1", "\"bilinear\"", "false",
                                              {{"lavender_frame_rate", "\"30\""}})},
@@ -893,10 +989,17 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
                                          {"1024", {{"vulkan_texture_max_size", "1024"}}},
                                          {"512", {{"vulkan_texture_max_size", "512"}}},
                                          {"256", {{"vulkan_texture_max_size", "256"}}}}));
+  // MLAA: ShiftGlue's morphological AA at swap (issue #5 SR-19), crisper
+  // than FXAA on long edges.
   rows.push_back(Setting("POST-PROCESS AA",
-                         {{"OFF", {{"swap_post_effect", "\"none\""}}},
-                          {"FXAA", {{"swap_post_effect", "\"fxaa\""}}},
-                          {"FXAA EXTREME", {{"swap_post_effect", "\"fxaa_extreme\""}}}}));
+                         {{"OFF", {{"swap_post_effect", "\"none\""},
+                                   {"swap_morphological_aa", "false"}}},
+                          {"FXAA", {{"swap_post_effect", "\"fxaa\""},
+                                    {"swap_morphological_aa", "false"}}},
+                          {"FXAA EXTREME", {{"swap_post_effect", "\"fxaa_extreme\""},
+                                            {"swap_morphological_aa", "false"}}},
+                          {"MLAA", {{"swap_post_effect", "\"none\""},
+                                    {"swap_morphological_aa", "true"}}}}));
   rows.push_back(Toggle("AA ON THE HUD", "swap_post_effect_scene_only", true));
   // How often the HUD and the rest of the interface update
   // (src/guest_native/ui_update.cpp): HALF runs the interface's update on
@@ -913,15 +1016,87 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
                                       {"swap_ambient_occlusion_strength", "70"}}},
                           {"HIGH", {{"swap_ambient_occlusion", "true"},
                                     {"swap_ambient_occlusion_strength", "100"}}}}));
-  // FH2's own post effects, switched in its code (src/graphics_hooks.cpp).
-  rows.push_back(Toggle("BLOOM", "disable_bloom", true));
-  rows.push_back(Toggle("MOTION BLUR", "disable_motion_blur", true));
+  // How far it looks for what occludes a pixel; it fades out from 80 to 200
+  // radii away.
+  {
+    MenuRow radius = Setting("AO RADIUS", {{"0.5 M", {{"swap_ambient_occlusion_radius", "0.5"}}},
+                                           {"1 M", {{"swap_ambient_occlusion_radius", "1.0"}}},
+                                           {"1.5 M", {{"swap_ambient_occlusion_radius", "1.5"}}},
+                                           {"2 M", {{"swap_ambient_occlusion_radius", "2.0"}}}});
+    radius.enabled = [] { return SameValue(Live("swap_ambient_occlusion"), "true"); };
+    rows.push_back(std::move(radius));
+  }
+  // A .cube colour LUT from <user>/luts on the scene at swap; the HUD keeps
+  // its colours (Pinyon Shift's rows).
+  {
+    std::vector<Choice> luts = {{"OFF", {{"scene_lut_path", "\"\""}}}};
+    std::vector<std::filesystem::path> files;
+    if (!services_.luts_dir.empty()) {
+      std::error_code error;
+      for (auto it = std::filesystem::directory_iterator(services_.luts_dir, error);
+           !error && it != std::filesystem::directory_iterator(); it.increment(error)) {
+        std::string extension = rex::path_to_utf8(it->path().extension());
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char c) { return char(std::tolower(c)); });
+        if (it->is_regular_file(error) && extension == ".cube") files.push_back(it->path());
+      }
+    }
+    std::sort(files.begin(), files.end());
+    for (const auto& file : files) {
+      // UTF-8 throughout: path::string() throws on Windows for a name the
+      // ANSI code page can't hold.
+      std::string path = rex::path_to_utf8(file);
+      std::replace(path.begin(), path.end(), '\\', '/');
+      luts.push_back({Upper(rex::path_to_utf8(file.stem())),
+                      {{"scene_lut_path", config::Quote(path)}}});
+    }
+    const bool any = luts.size() > 1 || !Unquote(Live("scene_lut_path")).empty();
+    if (any) {
+      rows.push_back(Setting("COLOUR LUT", std::move(luts)));
+      std::vector<Choice> strengths;
+      for (int strength : {25, 50, 75, 100}) {
+        strengths.push_back({std::to_string(strength) + "%",
+                             {{"scene_lut_strength", std::to_string(strength)}}});
+      }
+      MenuRow strength = Setting("LUT STRENGTH", std::move(strengths));
+      strength.enabled = [] { return !Unquote(Live("scene_lut_path")).empty(); };
+      rows.push_back(std::move(strength));
+    }
+  }
+  // FH2's own post effects, set in its code (src/graphics_hooks.cpp). Bloom
+  // and motion blur scale what the game sets, 100% being its own.
+  const auto strength = [](const char* off_name, const char* strength_name) {
+    std::vector<Choice> choices = {{"OFF", {{off_name, "true"}}}};
+    for (const char* value : {"0.25", "0.5", "0.75", "1.0", "1.5", "2.0"}) {
+      const int percent = int(std::lround(std::stod(value) * 100));
+      choices.push_back(
+          {std::to_string(percent) + "%", {{off_name, "false"}, {strength_name, value}}});
+    }
+    return choices;
+  };
+  rows.push_back(Setting("BLOOM", strength("disable_bloom", "lavender_bloom_strength")));
+  rows.push_back(
+      Setting("MOTION BLUR", strength("disable_motion_blur", "lavender_motion_blur_strength")));
   rows.push_back(Toggle("DEPTH OF FIELD", "disable_depth_of_field", true));
   // Through FH2's render scenarios (src/render_settings.cpp).
   rows.push_back(Toggle("SHADOWS", "lavender_shadows"));
   rows.push_back(Setting("REFLECTION UPDATES", {{"FULL", {{"lavender_env_map_rate", "1.0"}}},
                                                 {"HALF", {{"lavender_env_map_rate", "0.5"}}},
                                                 {"QUARTER", {{"lavender_env_map_rate", "0.25"}}}}));
+#if !defined(__ANDROID__)
+  // Model LODs and the procedural models' far limits (vegetation, crowds,
+  // props), through native scene culling (src/guest_native/scene_cull.cpp),
+  // which costs some CPU; issue #5 SR-20. SHORT draws less.
+  rows.push_back(Setting("DRAW DISTANCE",
+                         {{"DEFAULT", {{"lavender_native_scene_cull", "false"},
+                                       {"lavender_lod_distance_scale", "1.0"}}},
+                          {"SHORT", {{"lavender_native_scene_cull", "true"},
+                                     {"lavender_lod_distance_scale", "1.5"}}},
+                          {"FAR", {{"lavender_native_scene_cull", "true"},
+                                   {"lavender_lod_distance_scale", "0.75"}}},
+                          {"FARTHER", {{"lavender_native_scene_cull", "true"},
+                                       {"lavender_lod_distance_scale", "0.5"}}}}));
+#endif
   auto note = [this] { return ResolutionLine(); };
   return std::make_unique<MenuScreen>("GRAPHICS", std::move(rows), std::move(note));
 }
@@ -1655,6 +1830,7 @@ std::unique_ptr<MenuScreen> SettingsPages::Root() {
   rows.push_back(Page("CONTROLS", &SettingsPages::Controls));
   rows.push_back(Page("GAMEPLAY", &SettingsPages::Gameplay));
   rows.push_back(Page("CHEATS", &SettingsPages::Cheats));
+  rows.push_back(Page("MODS", &SettingsPages::Mods));
   if (services_.save_backups || services_.save_sync) {
     rows.push_back(Page("PROFILE", &SettingsPages::Profile));
   }

@@ -50,7 +50,8 @@ sync, Android or other game files). The game itself,
 own, so a shortcut to it works too.
 
 Your saves and settings are kept in the `user` folder next to the
-launcher.
+launcher. Colour grades (`.cube` LUT files) go in `user\luts`, and
+**GRAPHICS > COLOUR LUT** lists them.
 
 **Updating:** extract the new release into the same folder and press
 **Set up** again. It only rebuilds what changed, and your saves stay.

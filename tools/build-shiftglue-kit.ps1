@@ -94,6 +94,11 @@ foreach ($module in @('rexglue_dlss.cmake', 'rexglue_ffx_api_headers.cmake')) {
 $ffxNotice = Join-Path $prefix 'share/rexglue/upscalers/fidelityfx'
 [void](New-Item -ItemType Directory -Force -Path $ffxNotice)
 Copy-Item -LiteralPath (Join-Path $sdkRoot 'thirdparty/fidelityfx-vk/LICENSE.txt') -Destination $ffxNotice
+# Snapdragon GSR 1 is compiled into the presenter; its BSD-3-Clause licence
+# asks for the notice beside binaries.
+$gsrNotice = Join-Path $prefix 'share/rexglue/upscalers/snapdragon-gsr'
+[void](New-Item -ItemType Directory -Force -Path $gsrNotice)
+Copy-Item -LiteralPath (Join-Path $sdkRoot 'thirdparty/snapdragon-gsr/LICENSE') -Destination $gsrNotice
 
 # The Microsoft C++ runtime the kit's DLLs were built against, staged beside
 # the game (Microsoft's app-local deployment), so it starts on a PC without
