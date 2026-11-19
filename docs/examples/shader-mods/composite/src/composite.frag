@@ -217,6 +217,10 @@ void main() {
       }
     }
     const float centre_reach = length(velocity * pixels) * span;
+    // Only a velocity edge (an object much faster than the pixel) changes the
+    // direction; on the smooth gradient of camera motion the pixel's own
+    // velocity is kept, so the blur is the game's length there.
+    if (dominant_length < 2.0 * length(velocity * pixels) + 2.0) dominant = velocity;
     const float jitter_t = Noise(gl_FragCoord.xy, 5.0) - 0.5;
     vec3 sum = centre_squared / max(centre_reach, 1.0);
     float weight = 1.0 / max(centre_reach, 1.0);
