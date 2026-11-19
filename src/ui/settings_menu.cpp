@@ -1074,6 +1074,20 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
   rows.push_back(Setting("REFLECTION UPDATES", {{"FULL", {{"lavender_env_map_rate", "1.0"}}},
                                                 {"HALF", {{"lavender_env_map_rate", "0.5"}}},
                                                 {"QUARTER", {{"lavender_env_map_rate", "0.25"}}}}));
+#if !defined(__ANDROID__)
+  // Model LODs and the procedural models' far limits (vegetation, crowds,
+  // props), through native scene culling (src/guest_native/scene_cull.cpp),
+  // which costs some CPU; issue #5 SR-20. SHORT draws less.
+  rows.push_back(Setting("DRAW DISTANCE",
+                         {{"DEFAULT", {{"lavender_native_scene_cull", "false"},
+                                       {"lavender_lod_distance_scale", "1.0"}}},
+                          {"SHORT", {{"lavender_native_scene_cull", "true"},
+                                     {"lavender_lod_distance_scale", "1.5"}}},
+                          {"FAR", {{"lavender_native_scene_cull", "true"},
+                                   {"lavender_lod_distance_scale", "0.75"}}},
+                          {"FARTHER", {{"lavender_native_scene_cull", "true"},
+                                       {"lavender_lod_distance_scale", "0.5"}}}}));
+#endif
   auto note = [this] { return ResolutionLine(); };
   return std::make_unique<MenuScreen>("GRAPHICS", std::move(rows), std::move(note));
 }
