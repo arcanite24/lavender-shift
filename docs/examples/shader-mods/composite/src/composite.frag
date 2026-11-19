@@ -30,6 +30,12 @@
 //           smear reaches past its silhouette, and each tap counts when its
 //           own blur or the centre's covers the distance between them.
 //           RECON_TAPS taps (default 9). The tag rule still holds.
+//   AO      1: multiply the scene by the host's ambient occlusion (SR-10
+//           binding 7, computed at the SR-11 hook with
+//           swap_ambient_occlusion_in_scene) before the bloom is added, so
+//           the occlusion darkens light in the scene rather than the
+//           finished, tone-mapped image. Needs
+//           vulkan_shader_override_host_inputs; 1 when the host has none.
 
 #ifndef CURVE
 #define CURVE 0
@@ -39,6 +45,9 @@
 #endif
 #ifndef BLUR_TAPS
 #define BLUR_TAPS 5
+#endif
+#ifndef AO
+#define AO 0
 #endif
 #ifndef RECON
 #define RECON 0
@@ -89,6 +98,10 @@ uint FetchWord(uint slot, uint word) {
   const uint index = slot * 6u + word;
   return xe_fetch.words[index >> 2u][index & 3u];
 }
+#if AO
+layout(set = 0, binding = 7) uniform sampler2D xe_host_scene_ao;
+#endif
+
 float ExpScale(uint slot) {
   return exp2(float(bitfieldExtract(int(FetchWord(slot, 3u)), 13, 6)));
 }
@@ -261,6 +274,9 @@ void main() {
       texture(sampler2DArray(bloom_texture, bloom_sampler), vec3(xe_in_interpolator_0.zw, 0.0))
           .rgb *
       ExpScale(2u);
+#if AO
+  scene *= texture(xe_host_scene_ao, uv).r;
+#endif
   const vec3 linear = scene + bloom * bloom;
 
   // 3-5. Exposure, the curve, the LUT.
