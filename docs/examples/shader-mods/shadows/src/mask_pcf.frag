@@ -12,6 +12,15 @@
 // disc of the same radius (the mean length of the game's offsets, from
 // c32/c33), rotated per host pixel by interleaved gradient noise, each tap
 // a bilinear-weighted compare of four texels. TAPS 8 is the cheaper set.
+//
+// HOST_NOISE=1 takes the rotation from the SR-10 blue noise instead (needs
+// vulkan_shader_override_host_inputs), one noise texel per guest pixel, so
+// the pattern is the same size at every resolution scale. HOST_NOISE=2 is a
+// check that writes the noise itself as the mask.
+
+#ifndef HOST_NOISE
+#define HOST_NOISE 0
+#endif
 
 #ifndef TAPS
 #define TAPS 12
@@ -45,6 +54,16 @@ layout(set = 3, binding = 0) uniform texture2DArray depth_texture;   // fetch 0
 layout(set = 3, binding = 2) uniform texture2DArray shadow_texture;  // fetch 1
 layout(set = 3, binding = 4) uniform sampler depth_sampler;
 layout(set = 3, binding = 5) uniform sampler shadow_sampler;
+
+#if HOST_NOISE
+// SR-10 host inputs, set 0 bindings 5 and 6.
+layout(set = 0, binding = 5) uniform sampler2D xe_host_blue_noise;
+layout(set = 0, binding = 6, std140) uniform XeHostInputs {
+  vec2 draw_resolution_scale;
+  float blue_noise_texel;
+  uint version;
+} xe_host;
+#endif
 
 layout(location = 0) in vec4 xe_in_interpolator_0;  // clip position
 layout(location = 0) invariant out vec4 xe_out_fragment_data_0;
@@ -99,8 +118,18 @@ void main() {
 
   // The game's ring radius, in shadow-map UV.
   const float radius = 0.25 * (length(C32.xy) + length(C32.zw) + length(C33.xy) + length(C33.zw));
+#if HOST_NOISE
+  const vec2 guest_pixel = floor(gl_FragCoord.xy / max(xe_host.draw_resolution_scale, vec2(1.0)));
+  const float noise = texture(xe_host_blue_noise, (guest_pixel + 0.5) * xe_host.blue_noise_texel).r;
+#if HOST_NOISE == 2
+  xe_out_fragment_data_0 = vec4(noise, 1.0, 0.0, 0.0) * xe_system.color_exp_bias.x;
+  return;
+#endif
+  const float angle = 6.2831853 * noise;
+#else
   const float angle =
       6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+#endif
   const mat2 rotation = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
   const ivec2 shadow_size = textureSize(sampler2DArray(shadow_texture, shadow_sampler), 0).xy;
   float lit = 0.0;
