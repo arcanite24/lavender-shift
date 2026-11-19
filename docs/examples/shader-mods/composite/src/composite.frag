@@ -144,13 +144,22 @@ layout(set = 0, binding = 6, std140) uniform XeHostInputs {
   float scene_band_scale;
 } xe_host;
 
-// A 16-bit value where it agrees with the 10-bit one (one step, and a
-// little for the filter's own rounding).
+// Whether a band value is what the texel was made from: the resolve
+// truncates the band's float value to 7e3 (7 bits of mantissa) and packs
+// that in 10 bits, so the band is at or above the texel by less than one 7e3
+// step at its value or one 10-bit step (and a little for filtering).
+bool BandMatches(vec3 band, vec3 texel) {
+  const vec3 step = max(vec3(1.0 / 1023.0), band * (1.0 / 128.0)) * 1.05;
+  const vec3 d = band - texel;
+  return all(greaterThanEqual(d, vec3(-1.05 / 1023.0))) && all(lessThanEqual(d, step));
+}
+
+// A 16-bit value where it agrees with the 10-bit one.
 vec4 Refine(vec4 texel, vec3 band, vec3 copy) {
   const vec3 step = vec3(1.05 / 1023.0);
   band *= xe_host.scene_band_scale;
   copy *= xe_host.scene_copy_scale;
-  if (all(lessThanEqual(abs(band - texel.rgb), step))) return vec4(band, texel.a);
+  if (BandMatches(band, texel.rgb)) return vec4(band, texel.a);
 #if POST
   // Clipped at the top by the 10-bit texel: the band's value where it is
   // above it there and agrees elsewhere.
@@ -289,7 +298,16 @@ void main() {
   const vec4 centre = ScenePoint(uv);
 #if SCENE_FLOAT >= 2
   {
-#if SCENE_FLOAT == 2
+#if SCENE_FLOAT == 4
+    // R: the green difference, G: the texel's green, B: the band accepted.
+    const vec4 texel = texture(sampler2DArray(scene_texture, scene_point_sampler), vec3(uv, 0.0));
+    const vec3 band = texelFetch(xe_host_scene_bands, CopyTexel(uv), 0).rgb;
+    xe_out_fragment_data_0 =
+        vec4(clamp(0.5 + (band.g * xe_host.scene_band_scale - texel.g) * 1023.0 * 0.125, 0.0, 1.0),
+             texel.g, BandMatches(band * xe_host.scene_band_scale, texel.rgb) ? 1.0 : 0.0, 1.0) *
+        xe_system.color_exp_bias.x;
+    return;
+#elif SCENE_FLOAT == 2
     const vec4 texel = texture(sampler2DArray(scene_texture, scene_point_sampler), vec3(uv, 0.0));
     const vec3 band = texelFetch(xe_host_scene_bands, CopyTexel(uv), 0).rgb;
 #else
