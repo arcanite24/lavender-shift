@@ -24,6 +24,12 @@
 //   BLUR_TAPS  taps of the motion blur (5 = the game's; more is smoother)
 //   BLUR_SCALE the blur's length against the game's, as a shutter angle
 //           would be (0.5 is half the game's, 0 none)
+//   RECON   1: a reconstruction blur (SR-4) after McGuire et al. 2012,
+//           velocity only (the composite has no depth): the blur runs along
+//           the largest velocity in the neighbourhood, so a fast object's
+//           smear reaches past its silhouette, and each tap counts when its
+//           own blur or the centre's covers the distance between them.
+//           RECON_TAPS taps (default 9). The tag rule still holds.
 
 #ifndef CURVE
 #define CURVE 0
@@ -33,6 +39,12 @@
 #endif
 #ifndef BLUR_TAPS
 #define BLUR_TAPS 5
+#endif
+#ifndef RECON
+#define RECON 0
+#endif
+#ifndef RECON_TAPS
+#define RECON_TAPS 9
 #endif
 #ifndef BLUR_SCALE
 #define BLUR_SCALE 1.0
@@ -156,6 +168,19 @@ vec3 TapSquared(vec2 uv, float centre_tag, vec3 centre_squared) {
   return s.a == centre_tag ? s.rgb * s.rgb : centre_squared;
 }
 
+vec2 Velocity(vec2 uv) {
+  return (texture(sampler2DArray(velocity_texture, velocity_sampler), vec3(uv, 0.0)).xy *
+              ExpScale(5u) * C255.w +
+          C255.x) *
+         C(42).x * float(BLUR_SCALE);
+}
+
+#if RECON
+// 1 where a blur of length `reach` (in pixels) covers `distance`, falling to 0
+// over one pixel.
+float Cover(float distance, float reach) { return clamp(1.0 - distance / max(reach, 1.0), 0.0, 1.0); }
+#endif
+
 float Noise(vec2 pixel, float seed) {
   // Interleaved gradient noise (Jimenez 2014), offset per use.
   return fract(52.9829189 * fract(dot(pixel + seed * vec2(47.0, 17.0), vec2(0.06711056, 0.00583715))));
@@ -168,15 +193,48 @@ void main() {
   const vec4 centre =
       texture(sampler2DArray(scene_texture, scene_point_sampler), vec3(uv, 0.0)) * ExpScale(0u);
   const vec3 centre_squared = centre.rgb * centre.rgb;
-  const vec2 velocity =
-      (texture(sampler2DArray(velocity_texture, velocity_sampler), vec3(uv, 0.0)).xy *
-           ExpScale(5u) * C255.w +
-       C255.x) *
-      C(42).x * float(BLUR_SCALE);
+  const vec2 velocity = Velocity(uv);
   const vec3 jitter =
       (fract(xe_in_interpolator_2.xyz * xe_in_interpolator_2.xyz) * C255.w + C253.x) * C(42).z;
   vec3 scene;
-#if BLUR_TAPS == 5
+#if RECON
+  {
+    const vec2 pixels = vec2(textureSize(sampler2DArray(scene_texture, scene_point_sampler), 0).xy);
+    const float span = max(max(abs(C254.x), abs(C254.y)), max(abs(C255.y), abs(C255.z)));
+    // The neighbourhood's largest velocity: eight samples on a ring as wide
+    // as the centre's blur or 16 pixels, whichever is larger.
+    const float ring = max(length(velocity * pixels) * span, 16.0);
+    vec2 dominant = velocity;
+    float dominant_length = length(velocity * pixels);
+    const float turn = Noise(gl_FragCoord.xy, 3.0) * 0.785398;
+    for (int i = 0; i < 8; ++i) {
+      const float a = turn + float(i) * 0.785398;
+      const vec2 v = Velocity(uv + vec2(cos(a), sin(a)) * ring / pixels);
+      const float l = length(v * pixels);
+      if (l > dominant_length) {
+        dominant = v;
+        dominant_length = l;
+      }
+    }
+    const float centre_reach = length(velocity * pixels) * span;
+    const float jitter_t = Noise(gl_FragCoord.xy, 5.0) - 0.5;
+    vec3 sum = centre_squared / max(centre_reach, 1.0);
+    float weight = 1.0 / max(centre_reach, 1.0);
+    for (int i = 0; i < RECON_TAPS; ++i) {
+      if (i == RECON_TAPS / 2) continue;
+      const float t = mix(-span, span, (float(i) + 0.5 + jitter_t) / float(RECON_TAPS));
+      const vec2 at = uv + dominant * t;
+      const vec4 s = Scene(at);
+      if (s.a != centre.a) continue;
+      const float distance = length((at - uv) * pixels);
+      const float reach = length(Velocity(at) * pixels) * span;
+      const float w = max(Cover(distance, reach), Cover(distance, centre_reach));
+      sum += w * s.rgb * s.rgb;
+      weight += w;
+    }
+    scene = sum / weight;
+  }
+#elif BLUR_TAPS == 5
   scene = TapSquared(uv + velocity * (C254.x + jitter.x), centre.a, centre_squared) +
           TapSquared(uv + velocity * (C254.y + jitter.x), centre.a, centre_squared) +
           TapSquared(uv + velocity * (C255.y + jitter.y), centre.a, centre_squared) +

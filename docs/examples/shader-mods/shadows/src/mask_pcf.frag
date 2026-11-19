@@ -17,9 +17,30 @@
 // vulkan_shader_override_host_inputs), one noise texel per guest pixel, so
 // the pattern is the same size at every resolution scale. HOST_NOISE=2 is a
 // check that writes the noise itself as the mask.
+//
+// CONTACT=1 adds contact shadows (SR-18): a short march from the receiver
+// towards the light through the camera depth this shader already reads,
+// for the small gaps the shadow map is too coarse to see (tyres on the
+// road, kerbs, the car's underside). The light's direction in view space is
+// the shadow map's depth axis, the xyz of the depth row c10. CONTACT_LENGTH
+// is the march length in view units (metres), CONTACT_STEPS the samples,
+// CONTACT_FAR the distance where it has faded out.
 
 #ifndef HOST_NOISE
 #define HOST_NOISE 0
+#endif
+
+#ifndef CONTACT
+#define CONTACT 0
+#endif
+#ifndef CONTACT_LENGTH
+#define CONTACT_LENGTH 0.35
+#endif
+#ifndef CONTACT_STEPS
+#define CONTACT_STEPS 12
+#endif
+#ifndef CONTACT_FAR
+#define CONTACT_FAR 40.0
 #endif
 
 #ifndef TAPS
@@ -101,6 +122,37 @@ float Lit(vec2 uv, float receiver, ivec2 size) {
   return mix(mix(lit.x, lit.y, f.x), mix(lit.z, lit.w, f.x), f.y);
 }
 
+float ViewDepth(float stored) { return SafeDivide(C25.y, (C255.z - C25.x) - stored); }
+
+#if CONTACT
+// 1 lit, 0 shadowed by something on screen between the receiver and the light.
+float ContactLit(vec3 receiver_view, float jitter, ivec2 depth_size, vec2 depth_offset) {
+  if (receiver_view.z <= 0.0 || receiver_view.z > CONTACT_FAR) return 1.0;
+  const vec3 to_light = -normalize(C10.xyz);
+  // Thicker at distance, where one depth texel covers more.
+  const float thickness = 0.05 + 0.01 * receiver_view.z;
+  float occlusion = 0.0;
+  for (int i = 0; i < CONTACT_STEPS; ++i) {
+    const float t = (float(i) + jitter) / float(CONTACT_STEPS);
+    const vec3 q = receiver_view + to_light * (CONTACT_LENGTH * t + 0.02);
+    if (q.z <= 0.0) break;
+    const vec2 ndc = vec2(q.x / q.z * C0.x + C0.z, q.y / q.z * C1.y + C1.z);
+    const vec2 uv = vec2(C255.y * ndc.x + C255.y, C255.x * ndc.y + C255.y) + depth_offset;
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) break;
+    const ivec2 at = clamp(ivec2(floor(uv * vec2(depth_size))), ivec2(0), depth_size - 1);
+    const float surface = ViewDepth(
+        texelFetch(sampler2DArray(depth_texture, depth_sampler), ivec3(at, 0), 0).r);
+    const float behind = q.z - surface;
+    if (behind > 0.01 && behind < thickness) {
+      occlusion = 1.0 - t * 0.5;  // nearer hits are darker
+      break;
+    }
+  }
+  const float fade = 1.0 - smoothstep(0.6 * CONTACT_FAR, CONTACT_FAR, receiver_view.z);
+  return 1.0 - occlusion * fade;
+}
+#endif
+
 void main() {
   const vec4 clip = xe_in_interpolator_0;
   const vec2 ndc = vec2(SafeDivide(clip.x, clip.w), SafeDivide(clip.y, clip.w));
@@ -111,7 +163,7 @@ void main() {
   const ivec2 depth_at = clamp(ivec2(floor(depth_uv * vec2(depth_size))), ivec2(0), depth_size - 1);
   const float d = texelFetch(sampler2DArray(depth_texture, depth_sampler), ivec3(depth_at, 0), 0).r;
 
-  const float z = SafeDivide(C25.y, (C255.z - C25.x) - d);
+  const float z = ViewDepth(d);
   const vec4 view = vec4(z * SafeDivide(ndc.x - C0.z, C0.x), z * SafeDivide(ndc.y - C1.z, C1.y), z, 1.0);
   const vec2 st = clamp(vec2(dot(C8, view), dot(C9, view)), 0.0, 1.0);
   const float receiver = clamp(dot(C10.xyz, view.xyz) + C10.w, 0.0, 1.0);
@@ -136,6 +188,11 @@ void main() {
   for (int i = 0; i < TAPS; ++i) {
     lit += Lit(st + rotation * kDisc[i] * radius, receiver, shadow_size);
   }
-  const float value = lit / float(TAPS) + C24.w;
+  float value = lit / float(TAPS);
+#if CONTACT
+  value = min(value, ContactLit(view.xyz, fract(angle * 0.1591549 + 0.5), depth_size,
+                                0.5 / GuestSize(0u)));
+#endif
+  value += C24.w;
   xe_out_fragment_data_0 = vec4(value, 1.0, 0.0, 0.0) * xe_system.color_exp_bias.x;
 }
