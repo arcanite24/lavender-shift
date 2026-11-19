@@ -946,7 +946,9 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
     return values;
   };
   const std::vector<std::pair<std::string, std::string>> cheapest = {
-      {"anisotropic_override", "-1"}, {"swap_post_effect", "\"none\""}};
+      {"anisotropic_override", "-1"},
+      {"swap_post_effect", "\"none\""},
+      {"swap_morphological_aa", "false"}};
   rows.push_back(Setting("GRAPHICS PRESET",
                          {{"CONSOLE", preset("1", "\"bilinear\"", "false",
                                              {{"lavender_frame_rate", "\"30\""}})},
@@ -987,10 +989,17 @@ std::unique_ptr<MenuScreen> SettingsPages::Graphics() {
                                          {"1024", {{"vulkan_texture_max_size", "1024"}}},
                                          {"512", {{"vulkan_texture_max_size", "512"}}},
                                          {"256", {{"vulkan_texture_max_size", "256"}}}}));
+  // MLAA: ShiftGlue's morphological AA at swap (issue #5 SR-19), crisper
+  // than FXAA on long edges.
   rows.push_back(Setting("POST-PROCESS AA",
-                         {{"OFF", {{"swap_post_effect", "\"none\""}}},
-                          {"FXAA", {{"swap_post_effect", "\"fxaa\""}}},
-                          {"FXAA EXTREME", {{"swap_post_effect", "\"fxaa_extreme\""}}}}));
+                         {{"OFF", {{"swap_post_effect", "\"none\""},
+                                   {"swap_morphological_aa", "false"}}},
+                          {"FXAA", {{"swap_post_effect", "\"fxaa\""},
+                                    {"swap_morphological_aa", "false"}}},
+                          {"FXAA EXTREME", {{"swap_post_effect", "\"fxaa_extreme\""},
+                                            {"swap_morphological_aa", "false"}}},
+                          {"MLAA", {{"swap_post_effect", "\"none\""},
+                                    {"swap_morphological_aa", "true"}}}}));
   rows.push_back(Toggle("AA ON THE HUD", "swap_post_effect_scene_only", true));
   // How often the HUD and the rest of the interface update
   // (src/guest_native/ui_update.cpp): HALF runs the interface's update on
