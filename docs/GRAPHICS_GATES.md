@@ -19,10 +19,17 @@ game).
 
    ```
    python tools/frame-replay.py replay .local/logs/mb.fh1dump --out .local/ab/fidelity --label base
+   # from a worktree: add --root <main checkout>
    ```
 
    Pass: `front.png` matches a screenshot of the same frame (F8) apart from
    the HUD, with no bars. If not, the shader rows below need play instead.
+
+   **Run 2026-11-18** (the main checkout's build, `--root` pointing at it
+   from the worktree): the replay of `mb` took about ten minutes with
+   synchronous pipelines and gave a complete, plausible frame (road, car,
+   town, sky, HUD) with no colour bars, so replays are usable for A/B at
+   1x. Still to compare against an F8 capture of the same frame.
 
 ## Items
 

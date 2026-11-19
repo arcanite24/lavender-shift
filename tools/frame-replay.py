@@ -229,14 +229,15 @@ def parse_spec(spec: str) -> tuple[list[Path], list[str]]:
 
 
 def replay(dump: Path, out: Path, label: str, shader_dirs: list[Path], cvars: list[str],
-           build_dir: Path, timeout: int) -> dict:
+           build_dir: Path, timeout: int, root: Path = ROOT) -> dict:
     dump = dump.resolve()
     if not dump.is_file():
         raise ValueError(f"missing frame dump: {dump}")
+    build_dir = build_dir.resolve()
     exe = build_dir / ("lavender_shift.exe" if os.name == "nt" else "lavender_shift")
     if not exe.is_file():
         raise ValueError(f"build first: {exe}")
-    disc, update = ROOT / ".local/game/disc", ROOT / ".local/game/update"
+    disc, update = root / ".local/game/disc", root / ".local/game/update"
     for folder in (disc, update):
         if not folder.is_dir():
             raise ValueError(f"run tools/lavender_setup.py first: {folder}")
@@ -288,7 +289,7 @@ def ab(args: argparse.Namespace) -> dict:
     for label, spec in (("a", args.a), ("b", args.b)):
         shader_dirs, cvars = parse_spec(spec)
         report["variants"][label] = replay(args.dump, args.out, label, shader_dirs, cvars,
-                                           args.build_dir, args.timeout)
+                                           args.build_dir, args.timeout, args.root)
     for name in ("front", "output"):
         a, b = args.out / "a" / f"{name}.png", args.out / "b" / f"{name}.png"
         if a.is_file() and b.is_file():
@@ -304,8 +305,11 @@ def main(argv: list[str]) -> int:
         command = commands.add_parser(name)
         command.add_argument("dump", type=Path)
         command.add_argument("--out", type=Path, required=True)
+        # Another checkout's game data and build, e.g. from a worktree.
+        command.add_argument("--root", type=Path, default=ROOT,
+                             help="checkout with .local/game and the build (default: this one)")
         command.add_argument("--build-dir", type=Path,
-                             default=ROOT / "out/build/win-amd64-release")
+                             help="default: <root>/out/build/win-amd64-release")
         command.add_argument("--timeout", type=int, default=600)
         if name == "replay":
             command.add_argument("--label", default="replay")
@@ -322,12 +326,16 @@ def main(argv: list[str]) -> int:
     command.add_argument("replay_bin", type=Path)
     command.add_argument("png", type=Path)
     args = parser.parse_args(argv)
+    if getattr(args, "root", None):
+        args.root = args.root.resolve()
+    if getattr(args, "root", None) and not args.build_dir:
+        args.build_dir = args.root / "out/build/win-amd64-release"
     try:
         if args.command == "replay":
             cvars = [f"--{item}" for item in args.set]
             result = replay(args.dump, args.out, args.label,
                             [path.resolve() for path in args.shaders], cvars, args.build_dir,
-                            args.timeout)
+                            args.timeout, args.root)
         elif args.command == "ab":
             result = ab(args)
         elif args.command == "compare":
