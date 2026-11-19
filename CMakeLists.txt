@@ -160,6 +160,25 @@ if(WIN32 AND (LAVENDER_SHIFT_VC_REDIST_DIR OR LAVENDER_SHIFT_SHIFTGLUE_KIT))
     endif()
 endif()
 
+# Gamepad mappings for controllers SDL does not know by itself: the community
+# SDL_GameControllerDB, then Lavender's own (later lines win), joined beside
+# the game, where src/lavender_shift_app.cpp points hid_mappings_file.
+if(NOT ANDROID)
+    set(LAVENDER_SHIFT_GAMEPAD_DB_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/sdl-gamecontrollerdb/gamecontrollerdb.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/config/gamecontrollerdb-extra.txt")
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt"
+        COMMAND ${CMAKE_COMMAND}
+            "-DSOURCES=${LAVENDER_SHIFT_GAMEPAD_DB_SOURCES}"
+            "-DDESTINATION=${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/join_files.cmake"
+        DEPENDS ${LAVENDER_SHIFT_GAMEPAD_DB_SOURCES}
+        COMMENT "Joining the gamepad mappings beside lavender_shift"
+        VERBATIM)
+    add_custom_target(lavender_shift_gamepad_db ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt")
+endif()
+
 # The archive helper tools/prepare_shaders.ps1 uses (method-21 ZIP members
 # and the patched XEX image), built with the game by tools/build.ps1.
 add_executable(lavender_shift_archive_extract EXCLUDE_FROM_ALL

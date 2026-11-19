@@ -21,6 +21,7 @@
 #include <rex/ppc/context.h>
 #include <rex/ppc/func.h>
 #include <rex/system/gpu_write_signal.h>
+#include <rex/system/xmemory.h>
 
 REXCVAR_DEFINE_INT32(lavender_ring_wait_us, 1000, "Lavender Shift",
                      "Longest sleep, in microseconds, in each poll of FH2's wait for "
@@ -38,19 +39,24 @@ extern "C" REX_FUNC(__imp__sub_82B72EA8);
 
 namespace {
 
-// Guest loads. Windows maps every guest address at base + address; the
-// 0xE0000000 physical view needs a host offset on macOS and some Linux
-// kernels, which this desktop-only build does not handle yet.
+// A guest address on the host, as recompiled code computes it: the
+// 0xE0000000 physical view sits 4 KB further on where host pages are larger
+// than the guest's (Apple silicon's 16 KB; 0 on Windows).
+const uint8_t* Host(const uint8_t* base, uint32_t address) {
+  return base + address + rex::memory::detail::PhysicalHostOffset(address);
+}
+
+// Guest loads (big-endian).
 uint32_t Load32(const uint8_t* base, uint32_t address) {
   uint32_t value;
-  __builtin_memcpy(&value, base + address, sizeof(value));
+  __builtin_memcpy(&value, Host(base, address), sizeof(value));
   return __builtin_bswap32(value);
 }
 
 // The same, as an atomic load the compiler re-reads in a polling loop.
 uint32_t LoadAcquire32(const uint8_t* base, uint32_t address) {
-  return __builtin_bswap32(
-      __atomic_load_n(reinterpret_cast<const uint32_t*>(base + address), __ATOMIC_ACQUIRE));
+  return __builtin_bswap32(__atomic_load_n(reinterpret_cast<const uint32_t*>(Host(base, address)),
+                                           __ATOMIC_ACQUIRE));
 }
 
 // Offsets into the wait state (r3) and the device it points to.

@@ -9,7 +9,9 @@ ShiftGlue, extracts the player's files, generates the translation and
 compiles the game on the player's machine.
 
 Scope of the first release: Windows 10 2004+ x64, Vulkan, the Stage 0
-build. Linux, macOS, Android and mods come later.
+build. Linux, macOS, Android and mods come later. A checkout now builds
+and boots to the title on Apple silicon ([MACOS.md](MACOS.md)); a Mac
+launcher and release are not planned yet.
 
 ## What Pinyon already has and Lavender reuses
 

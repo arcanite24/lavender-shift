@@ -21,6 +21,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <Windows.h>
+#elif !defined(__ANDROID__)
+#include <SDL3/SDL_video.h>
 #endif
 
 #include <rex/cvar.h>
@@ -63,8 +65,14 @@ uint32_t DisplayRefreshRate() {
       mode.dmDisplayFrequency > 1) {
     return std::clamp<uint32_t>(mode.dmDisplayFrequency, 24, 240);
   }
+#elif !defined(__ANDROID__)
+  // macOS and Linux: SDL's mode of the primary display, as Pinyon Shift reads it.
+  if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
+      mode && mode->refresh_rate > 1.0f) {
+    return std::clamp<uint32_t>(static_cast<uint32_t>(mode->refresh_rate + 0.5f), 24, 240);
+  }
 #endif
-  // Elsewhere (Android) the display's rate is not read yet: 60.
+  // Elsewhere (Android), or when the rate is unknown: 60.
   return kFallbackRefresh;
 }
 

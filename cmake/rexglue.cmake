@@ -148,6 +148,11 @@ endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.local/generated/default/sources.cmake")
     include(.local/generated/default/sources.cmake)
     set(REXGLUE_ENTRYPOINT_GENERATED_SOURCES ${GENERATED_SOURCES})
+    # The runtime registers the entrypoint image through PPCFuncMappings
+    # (lavender_shift_init.cpp); nothing calls the generated
+    # lavender_shift_RegisterFunctions, whose 4.5 MB unit was the slowest
+    # in the build (29 minutes on an M4 Pro). Pinyon Shift leaves it out too.
+    list(FILTER REXGLUE_ENTRYPOINT_GENERATED_SOURCES EXCLUDE REGEX "/lavender_shift_register\\.cpp$")
     set(REXGLUE_ENTRYPOINT_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.local/generated/default")
 
     # Carried on the sources so they hold for whichever target compiles them.

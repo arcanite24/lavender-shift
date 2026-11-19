@@ -47,5 +47,11 @@ Vulkan headers and loader, glslang, SPIRV-Tools, spdlog, libmspack and
 others) are fetched by its pinned source tree as submodules and keep their
 upstream notices in `thirdparty/` there.
 
+This repository includes one third-party file:
+[SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB)'s
+gamepad mappings (zlib License), unmodified in
+`thirdparty/sdl-gamecontrollerdb` with its licence; the build copies them
+beside the game as `gamecontrollerdb.txt`.
+
 The launcher is built with .NET 8 (MIT) and ships self-contained, so its
 executable includes the .NET runtime.

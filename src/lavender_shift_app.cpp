@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <thread>
 #include <cstdint>
 #include <filesystem>
@@ -201,6 +202,13 @@ void LavenderShiftApp::OnConfigurePaths(rex::PathConfig& paths) {
   }
   // Crash reports, stall dumps and session events (LP-1.10) from here on.
   lavender_shift::diagnostics::Initialize(paths.user_data_root);
+  // The gamepad mappings the build puts beside the game (CMakeLists.txt),
+  // wherever it was started from; SDL would look in the current folder.
+  if (rex::cvar::GetFlagSource("hid_mappings_file") == rex::cvar::Source::kDefault) {
+    rex::cvar::SetFlagByName(
+        "hid_mappings_file",
+        rex::path_to_utf8(rex::filesystem::GetExecutableFolder() / "gamecontrollerdb.txt"));
+  }
   if (found_install) {
     lavender_shift::diagnostics::RecordEvent(
         "install.found", {{"game", rex::path_to_utf8(paths.game_data_root)},
@@ -321,6 +329,27 @@ void LavenderShiftApp::OnPostInitLogging() {
   }
 }
 
+namespace {
+
+// Host keys. F-keys are media keys by default on Mac keyboards, so macOS
+// adds its own conventions (Cmd+, settings, Ctrl+Cmd+F fullscreen, Cmd+Q
+// quit), as Pinyon Shift does; the F-keys stay as alternatives.
+#if defined(__APPLE__)
+constexpr std::string_view kGameMenuKeys = "F6,Cmd+Comma";
+constexpr std::string_view kPhotoKeys = "F8,Cmd+Shift+P";
+constexpr std::string_view kHudKeys = "F2,Cmd+Shift+H";
+constexpr std::string_view kFullscreenKeys = "F11,Ctrl+Cmd+F";
+constexpr std::string_view kQuitKeys = "Cmd+Q";
+#else
+constexpr std::string_view kGameMenuKeys = "F6";
+constexpr std::string_view kPhotoKeys = "F8";
+constexpr std::string_view kHudKeys = "F2";
+constexpr std::string_view kFullscreenKeys = "F11,Alt+Return";
+constexpr std::string_view kQuitKeys = "";
+#endif
+
+}  // namespace
+
 void LavenderShiftApp::OnPostSetup() {
 #if !defined(__ANDROID__)
   rex::ui::RegisterBind("bind_frame_inspector", "Ctrl+F8", "Toggle the desktop frame inspector",
@@ -363,7 +392,7 @@ void LavenderShiftApp::OnPostSetup() {
   UpdateHorPlus();
   lavender_shift::cvar_cycle::Start();
   // F6 here, and Back+Start on a pad (the SDK's pad_chord_game_menu).
-  rex::ui::RegisterBind("bind_game_menu", "F6", "Open the in-game settings menu",
+  rex::ui::RegisterBind("bind_game_menu", kGameMenuKeys, "Open the in-game settings menu",
                         [this] { ToggleSettingsMenu(); });
   // The pause menu's SETTINGS tile (src/pause_menu_hooks.cpp) opens the same
   // menu; it runs on a guest thread, so post it to the UI thread.
@@ -373,13 +402,38 @@ void LavenderShiftApp::OnPostSetup() {
       if (!host_ui_ || !host_ui_->is_open()) ToggleSettingsMenu();
     });
   });
-  rex::ui::RegisterBind("bind_photo", "F8", "Save the current frame as a PNG photo", [this] {
+  rex::ui::RegisterBind("bind_photo", kPhotoKeys, "Save the current frame as a PNG photo", [this] {
     lavender_shift::ui::SavePhoto(
         runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
                                                   : nullptr,
         photos_dir_);
   });
-  rex::ui::RegisterBind("bind_fullscreen", "F11,Alt+Return", "Toggle fullscreen", [this] {
+  // LAVENDER_SHIFT_PHOTO_AT=<seconds>[,<seconds>...]: a photo, as the photo
+  // key takes it, that many seconds after start. A check that needs no key
+  // presses or screen-recording permission (a Mac driven over ssh).
+  if (const char* times = std::getenv("LAVENDER_SHIFT_PHOTO_AT")) {
+    std::vector<int> seconds;
+    for (const char* at = times; *at;) {
+      if (const int value = std::atoi(at); value > 0) seconds.push_back(value);
+      at = std::strchr(at, ',');
+      if (!at) break;
+      ++at;
+    }
+    std::thread([this, seconds] {
+      const auto start = std::chrono::steady_clock::now();
+      for (const int at : seconds) {
+        std::this_thread::sleep_until(start + std::chrono::seconds(at));
+        if (!window()) return;
+        window()->app_context().CallInUIThreadDeferred([this] {
+          lavender_shift::ui::SavePhoto(runtime() && runtime()->graphics_system()
+                                            ? runtime()->graphics_system()->presenter()
+                                            : nullptr,
+                                        photos_dir_);
+        });
+      }
+    }).detach();
+  }
+  rex::ui::RegisterBind("bind_fullscreen", kFullscreenKeys, "Toggle fullscreen", [this] {
     const bool fullscreen = !REXCVAR_GET(fullscreen);
     rex::cvar::SetFlagByName("fullscreen", fullscreen ? "true" : "false");
     if (host_config_ && host_config_->Load()) {
@@ -387,8 +441,11 @@ void LavenderShiftApp::OnPostSetup() {
       host_config_->Save();
     }
   });
-  rex::ui::RegisterBind("bind_hud", "F2", "Hide or show the game's HUD",
+  rex::ui::RegisterBind("bind_hud", kHudKeys, "Hide or show the game's HUD",
                         [] { lavender_shift::graphics::ToggleHud(); });
+  if (!kQuitKeys.empty()) {
+    rex::ui::RegisterBind("bind_quit", kQuitKeys, "Quit the game", [this] { QuitFromMenu(); });
+  }
   rex::ui::RegisterBind("bind_music_next", "F9", "Your music: next track",
                         [] { lavender_shift::music::Next(); });
   rex::ui::RegisterBind("bind_music_previous", "Shift+F9", "Your music: previous track",
@@ -525,6 +582,7 @@ void LavenderShiftApp::OnShutdown() {
   rex::ui::UnregisterBind("bind_music_previous");
   lavender_shift::music::Shutdown();
   rex::ui::UnregisterBind("bind_fullscreen");
+  if (!kQuitKeys.empty()) rex::ui::UnregisterBind("bind_quit");
   lavender_shift::movies::Uninstall();
   lavender_shift::wide_view::SetNarrowCallback(nullptr);
   rex::cvar::UnregisterChangeCallbacks("lavender_hor_plus");

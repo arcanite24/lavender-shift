@@ -1,5 +1,7 @@
 # Building from a checkout (Windows)
 
+On an Apple silicon Mac, see [MACOS.md](MACOS.md) instead.
+
 Players don't need this page: the launcher in the
 [latest release](https://github.com/arcanite24/lavender-shift/releases/latest)
 does all of it. This is for working on Lavender Shift itself.

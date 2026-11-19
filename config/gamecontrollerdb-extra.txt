@@ -1,0 +1,9 @@
+# Lavender Shift's own SDL gamepad mappings, read after
+# thirdparty/sdl-gamecontrollerdb/gamecontrollerdb.txt (a later mapping for
+# the same GUID replaces an earlier one). Add a line here only for a pad that
+# was checked in the game; none is needed yet.
+#
+# Mappings apply only to pads SDL can open. On macOS a pad in Xbox 360
+# (XInput) USB mode, such as the 8BitDo Ultimate 2C Wired as 2dc8:310a, is
+# not a HID device and macOS has no driver for it, so no mapping helps; use
+# the pad's Switch or D-input mode, Bluetooth, or a wireless dongle.

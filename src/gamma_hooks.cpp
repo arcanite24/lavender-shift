@@ -23,6 +23,7 @@
 
 #include <rex/cvar.h>
 #include <rex/ppc/context.h>
+#include <rex/system/xmemory.h>
 
 #include "diagnostics.h"
 
@@ -41,9 +42,16 @@ REXCVAR_DEFINE_BOOL(lavender_gamma_log, false, "Lavender Shift",
 
 namespace {
 
-uint32_t Load32(const uint8_t* base, uint32_t address) {
+// A guest address on the host. The device can sit in the physical view,
+// which Apple silicon maps 4 KB further on (rex::memory::GuestPtr's offset;
+// 0 on Windows).
+uint8_t* At(uint8_t* base, uint32_t address) {
+  return base + address + rex::memory::detail::PhysicalHostOffset(address);
+}
+
+uint32_t Load32(uint8_t* base, uint32_t address) {
   uint32_t value;
-  std::memcpy(&value, base + address, sizeof(value));
+  std::memcpy(&value, At(base, address), sizeof(value));
   return std::byteswap(value);
 }
 
@@ -129,7 +137,7 @@ bool GammaRampBegin(PPCContext& ctx, uint8_t* base, int path) {
   Count(&Counts::reused);
   t_timing = false;
   const uint32_t stack = ctx.r1.u32 + kGammaRampOffset[path];
-  std::memcpy(base + stack, ramp.data, sizeof(ramp.data));
+  std::memcpy(At(base, stack), ramp.data, sizeof(ramp.data));
   // The arguments of the device call the hook jumps to.
   ctx.r3.u64 = Load32(base, ctx.r24.u32 + 20);
   ctx.r4.u64 = 2;
@@ -141,7 +149,7 @@ void GammaRampBuilt(PPCContext& ctx, uint8_t* base, int path) {
   if (gamma_ramp_pending != path) return;
   gamma_ramp_pending = -1;
   GammaRamp& ramp = gamma_ramps[path];
-  std::memcpy(ramp.data, base + ctx.r1.u32 + kGammaRampOffset[path], sizeof(ramp.data));
+  std::memcpy(ramp.data, At(base, ctx.r1.u32 + kGammaRampOffset[path]), sizeof(ramp.data));
   std::memcpy(ramp.key, gamma_ramp_pending_key, sizeof(ramp.key));
   ramp.valid = true;
 }
@@ -158,12 +166,12 @@ bool LavenderGammaRampPwlBegin(PPCContext& ctx, uint8_t* base) {
 bool LavenderGammaRampPwlBuilt(PPCContext& ctx, uint8_t* base) {
   AddSinceMark(&Counts::build_ns);
   GammaRampBuilt(ctx, base, 0);
-  const uint8_t* ramp = base + ctx.r5.u32;
+  const uint8_t* ramp = At(base, ctx.r5.u32);
   std::memcpy(device_gamma_pending_ramp, ramp, sizeof(device_gamma_pending_ramp));
   const bool skip = REXCVAR_GET(lavender_skip_unchanged_device_gamma) && device_gamma.valid &&
                     device_gamma.device == ctx.r3.u32 &&
                     !std::memcmp(device_gamma.ramp, ramp, sizeof(device_gamma.ramp)) &&
-                    !std::memcmp(device_gamma.copy, base + ctx.r3.u32 + kDeviceGammaCopy,
+                    !std::memcmp(device_gamma.copy, At(base, ctx.r3.u32 + kDeviceGammaCopy),
                                  sizeof(device_gamma.copy));
   Count(skip ? &Counts::device_skipped : &Counts::device_calls);
   if (!skip) Mark();
@@ -178,7 +186,7 @@ void LavenderGammaRampPwlDeviceSet(PPCContext& ctx, uint8_t* base) {
   const uint32_t device = Load32(base, ctx.r24.u32 + 20);
   device_gamma.device = device;
   std::memcpy(device_gamma.ramp, device_gamma_pending_ramp, sizeof(device_gamma.ramp));
-  std::memcpy(device_gamma.copy, base + device + kDeviceGammaCopy, sizeof(device_gamma.copy));
+  std::memcpy(device_gamma.copy, At(base, device + kDeviceGammaCopy), sizeof(device_gamma.copy));
   device_gamma.valid = true;
 }
 

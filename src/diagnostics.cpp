@@ -22,6 +22,9 @@
 #include <Windows.h>
 #else
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <pthread.h>
+#endif
 #endif
 
 #include <rex/filesystem.h>
@@ -126,6 +129,24 @@ const std::string& SessionId() { return g_session_id; }
 
 std::filesystem::path LogsDir() { return g_logs.empty() ? std::filesystem::path("logs") : g_logs; }
 
+namespace {
+
+// The calling thread's system ID, as the logs and crash reports show it.
+uint64_t ThreadId() {
+#if defined(_WIN32)
+  return GetCurrentThreadId();
+#elif defined(__APPLE__)
+  // macOS has no gettid; this is the ID Activity Monitor and lldb show.
+  uint64_t id = 0;
+  pthread_threadid_np(nullptr, &id);
+  return id;
+#else
+  return static_cast<uint64_t>(gettid());
+#endif
+}
+
+}  // namespace
+
 void RecordEvent(std::string_view event, std::initializer_list<Field> fields) {
   RecordEvent(event, std::span<const Field>(fields.begin(), fields.size()));
 }
@@ -134,12 +155,7 @@ void RecordEvent(std::string_view event, std::span<const Field> fields) {
   std::ostringstream json;
   json << "{\"schema\":1,\"utc\":\"" << UtcTimestamp(false) << "\",\"session\":\""
        << JsonEscape(g_session_id) << "\",\"event\":\"" << JsonEscape(event) << "\",\"tid\":\""
-#if defined(_WIN32)
-       << GetCurrentThreadId()
-#else
-       << gettid()
-#endif
-       << '"';
+       << ThreadId() << '"';
   for (const auto& [key, value] : fields) {
     json << ",\"" << JsonEscape(key) << "\":\"" << JsonEscape(value) << '"';
   }
