@@ -470,6 +470,26 @@ void LavenderShiftApp::OnPostSetup() {
       }
     }).detach();
   }
+  // A frame dump for tools/frame-replay.py (issue #5 captures), when
+  // fh1_frame_dump_path names the file at startup.
+  rex::ui::RegisterBind(
+      "bind_frame_dump", "Shift+F8",
+      "Record the next frame to fh1_frame_dump_path (for frame replays)", [] {
+        const std::string path =
+            rex::cvar::GetFlagByName("fh1_frame_dump_path");
+        if (path.empty()) {
+          REXLOG_WARN("Frame dump: set fh1_frame_dump_path and restart first");
+          return;
+        }
+        // The recorder runs only at a draw resolution scale of 1.
+        if (rex::cvar::GetFlagByName("draw_resolution_scale_x") != "1" ||
+            rex::cvar::GetFlagByName("draw_resolution_scale_y") != "1") {
+          REXLOG_WARN("Frame dump: set draw_resolution_scale_x and _y to 1 and restart first");
+          return;
+        }
+        rex::cvar::SetFlagByName("fh1_frame_dump_frame", "-1");
+        REXLOG_INFO("Frame dump: recording the next frame to {}", path);
+      });
   rex::ui::RegisterBind("bind_fullscreen", kFullscreenKeys, "Toggle fullscreen", [this] {
     const bool fullscreen = !REXCVAR_GET(fullscreen);
     rex::cvar::SetFlagByName("fullscreen", fullscreen ? "true" : "false");
