@@ -402,12 +402,28 @@ void LavenderShiftApp::OnPostSetup() {
       if (!host_ui_ || !host_ui_->is_open()) ToggleSettingsMenu();
     });
   });
-  rex::ui::RegisterBind("bind_photo", "F8", "Save the current frame as a PNG photo", [this] {
-    lavender_shift::ui::SavePhoto(
-        runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
-                                                  : nullptr,
-        photos_dir_);
-  });
+  rex::ui::RegisterBind("bind_photo", "F8",
+                        "Save the current frame as a PNG photo", [this] {
+                          lavender_shift::ui::SavePhoto(
+                              runtime() && runtime()->graphics_system()
+                                  ? runtime()->graphics_system()->presenter()
+                                  : nullptr,
+                              photos_dir_);
+                        });
+  // A frame dump for tools/frame-replay.py (issue #5 captures), when
+  // fh1_frame_dump_path names the file at startup.
+  rex::ui::RegisterBind(
+      "bind_frame_dump", "Shift+F8",
+      "Record the next frame to fh1_frame_dump_path (for frame replays)", [] {
+        const std::string path =
+            rex::cvar::GetFlagByName("fh1_frame_dump_path");
+        if (path.empty()) {
+          REXLOG_WARN("Frame dump: set fh1_frame_dump_path and restart first");
+          return;
+        }
+        rex::cvar::SetFlagByName("fh1_frame_dump_frame", "-1");
+        REXLOG_INFO("Frame dump: recording the next frame to {}", path);
+      });
   rex::ui::RegisterBind("bind_fullscreen", "F11,Alt+Return", "Toggle fullscreen", [this] {
     const bool fullscreen = !REXCVAR_GET(fullscreen);
     rex::cvar::SetFlagByName("fullscreen", fullscreen ? "true" : "false");
