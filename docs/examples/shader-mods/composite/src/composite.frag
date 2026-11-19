@@ -36,6 +36,13 @@
 //           the occlusion darkens light in the scene rather than the
 //           finished, tone-mapped image. Needs
 //           vulkan_shader_override_host_inputs; 1 when the host has none.
+//   SCENE_FLOAT 1: read the scene from the host's 16-bit copy of it (SR-12
+//           binding 8: unorm10_render_target_as_unorm16, scene_host_copy and
+//           the mid-frame hook) where it is within one 10-bit step of the
+//           game's texel, so the scene keeps 16 bits a channel into the
+//           curve; elsewhere (no copy yet, a stale one) the texel. The tag
+//           (alpha) is always the texel's. 2 is a check: it writes the
+//           difference, in 10-bit steps, as 0.5 + d / 2.
 
 #ifndef CURVE
 #define CURVE 0
@@ -57,6 +64,9 @@
 #endif
 #ifndef BLUR_SCALE
 #define BLUR_SCALE 1.0
+#endif
+#ifndef SCENE_FLOAT
+#define SCENE_FLOAT 0
 #endif
 
 layout(set = 1, binding = 0, std140) uniform XeSystemConstants {
@@ -101,13 +111,47 @@ uint FetchWord(uint slot, uint word) {
 #if AO
 layout(set = 0, binding = 7) uniform sampler2D xe_host_scene_ao;
 #endif
+#if SCENE_FLOAT
+layout(set = 0, binding = 8) uniform sampler2D xe_host_scene_copy;
+layout(set = 0, binding = 6, std140) uniform XeHostInputs {
+  vec2 draw_resolution_scale;
+  float blue_noise_texel;
+  uint version;
+  // 2^ the resolve's exponent bias: the copy is the render target, the
+  // texel the target times this.
+  float scene_copy_scale;
+} xe_host;
+
+// The 16-bit value where it agrees with the 10-bit one (one step, and a
+// little for the filter's own rounding).
+vec4 Refine(vec4 texel, vec3 copy) {
+  copy *= xe_host.scene_copy_scale;
+  return all(lessThanEqual(abs(copy - texel.rgb), vec3(1.05 / 1023.0))) ? vec4(copy, texel.a)
+                                                                          : texel;
+}
+#endif
 
 float ExpScale(uint slot) {
   return exp2(float(bitfieldExtract(int(FetchWord(slot, 3u)), 13, 6)));
 }
 
 vec4 Scene(vec2 uv) {
-  return texture(sampler2DArray(scene_texture, scene_sampler), vec3(uv, 0.0)) * ExpScale(0u);
+  vec4 texel = texture(sampler2DArray(scene_texture, scene_sampler), vec3(uv, 0.0));
+#if SCENE_FLOAT
+  texel = Refine(texel, textureLod(xe_host_scene_copy, uv, 0.0).rgb);
+#endif
+  return texel * ExpScale(0u);
+}
+
+vec4 ScenePoint(vec2 uv) {
+  vec4 texel = texture(sampler2DArray(scene_texture, scene_point_sampler), vec3(uv, 0.0));
+#if SCENE_FLOAT
+  const ivec2 size = textureSize(xe_host_scene_copy, 0);
+  texel = Refine(texel,
+                 texelFetch(xe_host_scene_copy, clamp(ivec2(uv * vec2(size)), ivec2(0), size - 1), 0)
+                     .rgb);
+#endif
+  return texel * ExpScale(0u);
 }
 
 // The game's curve, unnormalised.
@@ -203,8 +247,20 @@ void main() {
   const vec2 uv = xe_in_interpolator_0.xy;
 
   // 1-2. Motion blur and the scene in linear light.
-  const vec4 centre =
-      texture(sampler2DArray(scene_texture, scene_point_sampler), vec3(uv, 0.0)) * ExpScale(0u);
+  const vec4 centre = ScenePoint(uv);
+#if SCENE_FLOAT == 2
+  {
+    const vec4 texel = texture(sampler2DArray(scene_texture, scene_point_sampler), vec3(uv, 0.0));
+    const ivec2 size = textureSize(xe_host_scene_copy, 0);
+    const vec3 copy =
+        texelFetch(xe_host_scene_copy, clamp(ivec2(uv * vec2(size)), ivec2(0), size - 1), 0).rgb;
+    xe_out_fragment_data_0 =
+        vec4(clamp(0.5 + (copy * xe_host.scene_copy_scale - texel.rgb) * 1023.0 * 0.5, 0.0, 1.0),
+             1.0) *
+        xe_system.color_exp_bias.x;
+    return;
+  }
+#endif
   const vec3 centre_squared = centre.rgb * centre.rgb;
   const vec2 velocity = Velocity(uv);
   const vec3 jitter =
