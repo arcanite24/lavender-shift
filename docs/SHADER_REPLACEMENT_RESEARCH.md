@@ -50,6 +50,13 @@ this needs. Pinyon Shift built it for FH1 ([its MODDING.md](https://github.com/a
   knocks out one shader's draws live, which gives a ceiling on what
   replacing that shader could save.
 
+- **Data patches (SR-16).** A mod's `patches.toml` edits attributes of the
+  game's XML files (TrackSettings, the TimeOfDay files) by element path,
+  set, scaled or added to, and the patched copy is served from the
+  player's cache over the disc's and the mods' files
+  (`src/mods/data_patches.h`, sample in `docs/examples/data-patches/`).
+  `mods_log_game_files=.xml` logs which files the title opens.
+
 A replacement is our own GLSL compiled to SPIR-V, written from the pass's
 inputs and outputs. Translated guest shaders and captures stay in `.local/`
 and are never committed (docs/LEGAL.md).

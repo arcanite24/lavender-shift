@@ -1,0 +1,33 @@
+# A sample data patch pack (issue #5 SR-16). Copy this folder to
+# <user>/mods/longer-shadows/ beside a mod.toml with
+#
+#   name = "longer-shadows"
+#   version = "1"
+#   shares_save = true
+#
+# and add longer-shadows to enabled_mods. Each edit names a game file, an
+# element path from its root and an attribute, and sets, scales or adds to
+# it. None of these is measured yet: check each with tools/frame-replay.py ab
+# and in free roam (mods_log_game_files=.xml shows whether the file is read)
+# before keeping it.
+
+# Shadows reach twice as far and use a slightly sharper mip.
+[[patch]]
+file = "media/tracks/Anthem/TrackSettings.xml"
+element = "TrackSettings/ShadowEnds"
+attribute = "InGameShadowEnd"
+scale = 2.0
+
+[[patch]]
+file = "media/tracks/Anthem/TrackSettings.xml"
+element = "TrackSettings/ShadowEnds"
+attribute = "ShadowMipBias"
+add = -0.25
+
+# Car reflections see twice as far (every face is already redrawn each
+# frame, FacesPerFrame 6).
+[[patch]]
+file = "media/tracks/Anthem/TrackSettings.xml"
+element = "TrackSettings/Cubemap"
+attribute = "FarDistance"
+scale = 2.0

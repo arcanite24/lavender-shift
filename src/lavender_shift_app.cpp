@@ -36,6 +36,7 @@
 #include "diagnostics.h"
 #include "save_backups.h"
 #include "pause_menu_hooks.h"
+#include "mods/data_patches.h"
 #include "mods/immersive_camera.h"
 #include "mods/mods.h"
 #include "mods/overlay_device.h"
@@ -300,6 +301,33 @@ void LavenderShiftApp::MountMods() {
   }
   if (!enabled_mods_.empty()) game_roots = lavender_shift::mods::Roots("game");
   if (!immersive_camera.empty()) game_roots.push_back(immersive_camera);
+  // Mods' patches.toml edits (src/mods/data_patches.h), applied to the file
+  // the game would read and served ahead of every mod's files.
+  std::vector<std::filesystem::path> mod_directories;
+  for (const auto& mod : lavender_shift::mods::Mods()) {
+    if (mod.loaded) mod_directories.push_back(mod.directory);
+  }
+  if (!mod_directories.empty()) {
+    const auto patched = photos_dir_.parent_path() / "cache" / "data-patches";
+    const auto result = lavender_shift::mods::BuildDataPatches(mod_directories, game_data_root(),
+                                                               game_roots, patched);
+    for (const auto& problem : result.problems) REXLOG_WARN("Mods: {}", problem);
+    if (result.files) {
+      game_roots.insert(game_roots.begin(), patched);
+      REXLOG_INFO("Mods: {} data patch(es) applied to {} file(s)", result.applied, result.files);
+    }
+    lavender_shift::diagnostics::RecordEvent(
+        "mod.data_patches", {{"files", std::to_string(result.files)},
+                             {"edits", std::to_string(result.applied)},
+                             {"problems", std::to_string(result.problems.size())}});
+  }
+  // mods_log_game_files needs the overlay even with no mod files under it.
+  if (game_roots.empty() && !rex::cvar::GetFlagByName("mods_log_game_files").empty()) {
+    auto empty = photos_dir_.parent_path() / "cache" / "data-patches";
+    std::error_code error;
+    std::filesystem::create_directories(empty, error);
+    game_roots.push_back(std::move(empty));
+  }
   if (auto roots = std::move(game_roots); !roots.empty()) {
     auto overlay = std::make_unique<lavender_shift::mods::OverlayDevice>(
         "\\Device\\Harddisk0\\Partition1", game_data_root(), std::move(roots));
