@@ -47,6 +47,13 @@
 //           write the band copy's difference from the texel, in 10-bit
 //           steps, as 0.5 + d / 2, at the pixel (2) and filtered between
 //           texels (3).
+//   POST    1: SR-21's first step. The scene as SCENE_FLOAT=1, and where the
+//           game's texel is clipped at its top the bands' unclipped value,
+//           so highlights keep their range into the curve; and the host's
+//           bloom (binding 10, scene_bloom: built from the bands in linear
+//           light) in place of the game's: the scene is mixed towards the
+//           pyramid's average by POST_BLOOM (default 0.04), which keeps the
+//           frame's level where the game's thresholded bloom adds light.
 
 #ifndef CURVE
 #define CURVE 0
@@ -69,8 +76,14 @@
 #ifndef BLUR_SCALE
 #define BLUR_SCALE 1.0
 #endif
+#ifndef POST
+#define POST 0
+#endif
+#ifndef POST_BLOOM
+#define POST_BLOOM 0.04
+#endif
 #ifndef SCENE_FLOAT
-#define SCENE_FLOAT 0
+#define SCENE_FLOAT POST
 #endif
 
 layout(set = 1, binding = 0, std140) uniform XeSystemConstants {
@@ -118,6 +131,9 @@ layout(set = 0, binding = 7) uniform sampler2D xe_host_scene_ao;
 #if SCENE_FLOAT
 layout(set = 0, binding = 8) uniform sampler2D xe_host_scene_copy;
 layout(set = 0, binding = 9) uniform sampler2D xe_host_scene_bands;
+#if POST
+layout(set = 0, binding = 10) uniform sampler2D xe_host_scene_bloom;
+#endif
 layout(set = 0, binding = 6, std140) uniform XeHostInputs {
   vec2 draw_resolution_scale;
   float blue_noise_texel;
@@ -135,6 +151,16 @@ vec4 Refine(vec4 texel, vec3 band, vec3 copy) {
   band *= xe_host.scene_band_scale;
   copy *= xe_host.scene_copy_scale;
   if (all(lessThanEqual(abs(band - texel.rgb), step))) return vec4(band, texel.a);
+#if POST
+  // Clipped at the top by the 10-bit texel: the band's value where it is
+  // above it there and agrees elsewhere.
+  const bvec3 clipped = greaterThanEqual(texel.rgb, vec3(1022.5 / 1023.0));
+  const bvec3 near = lessThanEqual(abs(band - texel.rgb), step);
+  if (any(clipped) && all(greaterThanEqual(band, texel.rgb - step)) &&
+      all(bvec3(near.x || clipped.x, near.y || clipped.y, near.z || clipped.z))) {
+    return vec4(band, texel.a);
+  }
+#endif
   if (all(lessThanEqual(abs(copy - texel.rgb), step))) return vec4(copy, texel.a);
   return texel;
 }
@@ -350,7 +376,14 @@ void main() {
 #if AO
   scene *= texture(xe_host_scene_ao, uv).r;
 #endif
+#if POST
+  // Energy-conserving: the scene moves towards the pyramid's average (six
+  // levels summed), so bright areas spread and the frame keeps its level.
+  const vec3 linear =
+      mix(scene, textureLod(xe_host_scene_bloom, uv, 0.0).rgb * (1.0 / 6.0), POST_BLOOM);
+#else
   const vec3 linear = scene + bloom * bloom;
+#endif
 
   // 3-5. Exposure, the curve, the LUT.
   const vec3 exposed = exp2(xe_in_interpolator_1.w) * linear;
