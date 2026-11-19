@@ -1,0 +1,8 @@
+# SR-24: the sky's horizon band. Build with tools/build-shader-mod.py;
+# --define PHASE=1 for a Henyey-Greenstein sun lobe.
+name = "sky-horizon"
+version = "1"
+
+[[shader]]
+guest = "EE3FFB69590792A2"
+source = "src/horizon.frag"
