@@ -820,7 +820,8 @@ std::unique_ptr<MenuScreen> SettingsPages::Debug() {
                           {"MOTION", {{"present_upscaler_view", "\"motion\""}}}}));
   rows.push_back(Setting("OBJECT SLOTS IN MOTION VIEW",
                          {{"OFF", {{"present_upscaler_object_debug", "0"}}},
-                          {"ON", {{"present_upscaler_object_debug", "1"}}}}));
+                          {"ON", {{"present_upscaler_object_debug", "1"}}},
+                          {"REACTIVE", {{"present_upscaler_object_debug", "2"}}}}));
   rows.push_back(Toggle("OBJECT MOTION", "present_upscaler_object_motion"));
   rows.push_back(Toggle("CAMERA DEPTH AND MOTION", "present_upscaler_camera"));
   rows.push_back(Toggle("UPSCALER JITTER", "present_upscaler_jitter"));
