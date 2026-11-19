@@ -24,7 +24,8 @@
 // road, kerbs, the car's underside). The light's direction in view space is
 // the shadow map's depth axis, the xyz of the depth row c10. CONTACT_LENGTH
 // is the march length in view units (metres), CONTACT_STEPS the samples,
-// CONTACT_FAR the distance where it has faded out.
+// CONTACT_FAR the distance where it has faded out. CONTACT=2 is a check
+// that writes the march's result alone as the mask.
 
 #ifndef HOST_NOISE
 #define HOST_NOISE 0
@@ -38,6 +39,9 @@
 #endif
 #ifndef CONTACT_STEPS
 #define CONTACT_STEPS 12
+#endif
+#ifndef CONTACT_SIGN
+#define CONTACT_SIGN -1
 #endif
 #ifndef CONTACT_FAR
 #define CONTACT_FAR 40.0
@@ -128,7 +132,7 @@ float ViewDepth(float stored) { return SafeDivide(C25.y, (C255.z - C25.x) - stor
 // 1 lit, 0 shadowed by something on screen between the receiver and the light.
 float ContactLit(vec3 receiver_view, float jitter, ivec2 depth_size, vec2 depth_offset) {
   if (receiver_view.z <= 0.0 || receiver_view.z > CONTACT_FAR) return 1.0;
-  const vec3 to_light = -normalize(C10.xyz);
+  const vec3 to_light = float(CONTACT_SIGN) * normalize(C10.xyz);
   // Thicker at distance, where one depth texel covers more.
   const float thickness = 0.05 + 0.01 * receiver_view.z;
   float occlusion = 0.0;
@@ -190,8 +194,13 @@ void main() {
   }
   float value = lit / float(TAPS);
 #if CONTACT
-  value = min(value, ContactLit(view.xyz, fract(angle * 0.1591549 + 0.5), depth_size,
-                                0.5 / GuestSize(0u)));
+  const float contact =
+      ContactLit(view.xyz, fract(angle * 0.1591549 + 0.5), depth_size, 0.5 / GuestSize(0u));
+#if CONTACT == 2
+  value = contact;
+#else
+  value = min(value, contact);
+#endif
 #endif
   value += C24.w;
   xe_out_fragment_data_0 = vec4(value, 1.0, 0.0, 0.0) * xe_system.color_exp_bias.x;
