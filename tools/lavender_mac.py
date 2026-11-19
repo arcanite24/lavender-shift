@@ -287,6 +287,10 @@ def prepare_sdk() -> None:
         if not (SDK / "CMakeLists.txt").is_file():
             run_logged("rexglue-prepare", ["git", "submodule", "update", "--init", "--recursive",
                                            "--jobs", "8", "--", "thirdparty/shiftglue-sdk"])
+        elif git("submodule", "status", "--", "thirdparty/shiftglue-sdk").startswith("+"):
+            # Left alone: in a checkout it may be ShiftGlue work in progress.
+            print("warning: thirdparty/shiftglue-sdk is not at the commit this checkout pins; "
+                  "after a pull, run git submodule update --init --recursive", flush=True)
         return
     pin = json.loads((ROOT / "config" / "release-toolchain.json").read_text(encoding="utf-8"))
     repository, revision = pin["rexglue"]["repository"], pin["rexglue"]["revision"]

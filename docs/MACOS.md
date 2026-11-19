@@ -56,7 +56,10 @@ cd lavender-shift
 python3 tools/lavender_mac.py setup --iso <disc>.iso --update <title update>.zip
 ```
 
-In a checkout, `setup` uses the submodule instead of fetching ShiftGlue.
+In a checkout, `setup` uses the submodule instead of fetching ShiftGlue,
+and leaves it where it is: after `git pull`, run
+`git submodule update --init --recursive` first (`setup` warns when the
+submodule is not at the pinned commit).
 The steps also run on their own: `tools/lavender_setup.py disc`, `update`
 and `codegen`, then `lavender_mac.py doctor` and `build`. `build` makes the
 translator (`rexglue`, in the submodule), translates the game into
