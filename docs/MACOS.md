@@ -1,10 +1,10 @@
 # macOS (Apple silicon)
 
-Lavender Shift builds and runs natively on Apple silicon Macs, from a
-checkout and a terminal. There is no Mac launcher yet. The game's Vulkan
-renderer runs on Metal through MoltenVK, which ShiftGlue builds in. As on
-Windows, you bring your own disc image and title update, and the game is
-translated and compiled on your Mac.
+Lavender Shift builds and runs natively on Apple silicon Macs, set up from
+a terminal. There is no Mac launcher yet. The game's Vulkan renderer runs
+on Metal through MoltenVK, which ShiftGlue builds in. As on Windows, you
+bring your own disc image and title update, and the game is translated and
+compiled on your Mac.
 
 ## Requirements
 
@@ -12,31 +12,55 @@ translated and compiled on your Mac.
   supported.
 - Your FH2 USA disc image and title update v2 (see the
   [README](../README.md#what-you-need)).
-- About 25 GB free: 7.2 GB of game files, about 350 MB of translated code,
-  and the build.
+- About 30 GB free: 7.2 GB of game files, ShiftGlue's source, about 350 MB
+  of translated code, and the build.
 - Apple's Command Line Tools (`xcode-select --install`), which bring
   `clang`, `git` and Python 3.9.
 - CMake and Ninja: `brew install cmake ninja`.
 
-## From a terminal
+## From a release
+
+Download `LavenderShift-<version>-macos-arm64.tar.gz` from the
+[latest release](https://github.com/arcanite24/lavender-shift/releases/latest),
+then in Terminal:
+
+```bash
+cd ~/Downloads
+tar -xzf LavenderShift-<version>-macos-arm64.tar.gz
+cd LavenderShift-<version>-macos-arm64
+python3 tools/lavender_mac.py setup --iso ~/Downloads/<FH2 USA disc>.iso \
+    --update ~/Downloads/<title update v2>.zip
+python3 tools/lavender_mac.py run
+```
+
+`setup` checks the tools, fetches ShiftGlue at the revision the release
+pins (`config/release-toolchain.json`), extracts the disc and update (only
+the supported files are accepted), builds the translator, translates the
+game, compiles it and prepares the pipelines. The first setup takes about
+half an hour on an M4 Pro, most of it compiling. It keeps the Mac awake
+(`caffeinate`), and each step logs to `.local/logs`. After that, `run` is
+all you need. Saves and settings live in `.local/user` in that folder.
+
+To update, extract the newer release over the same folder (`tar -xzf` into
+the folder's parent) and run `setup` again without `--iso` and `--update`:
+it reuses the extracted files and rebuilds only what changed.
+
+## From a checkout
 
 ```bash
 git clone --recursive https://github.com/arcanite24/lavender-shift.git
 cd lavender-shift
-python3 -I tools/lavender_setup.py disc   ~/Downloads/<FH2 USA disc>.iso
-python3 -I tools/lavender_setup.py update ~/Downloads/<title update v2>.zip
-python3 -I tools/lavender_setup.py codegen
-python3 tools/lavender_mac.py doctor
-python3 tools/lavender_mac.py build
-python3 tools/lavender_mac.py run
+python3 tools/lavender_mac.py setup --iso <disc>.iso --update <title update>.zip
 ```
 
-`build` makes the translator (`rexglue`, in the submodule), translates the
-game into `.local/generated` and compiles it with the `mac-arm64-release`
-preset. It keeps the Mac awake (`caffeinate`) while it works, and each step
-logs to `.local/logs`. A tree translated on another machine is translated
-again, because the generator records absolute paths. After code changes,
-`build --step game` is enough.
+In a checkout, `setup` uses the submodule instead of fetching ShiftGlue.
+The steps also run on their own: `tools/lavender_setup.py disc`, `update`
+and `codegen`, then `lavender_mac.py doctor` and `build`. `build` makes the
+translator (`rexglue`, in the submodule), translates the game into
+`.local/generated` and compiles it with the `mac-arm64-release` preset. A
+tree translated on another machine is translated again, because the
+generator records absolute paths. After code changes, `build --step game`
+is enough.
 
 `run` prepares the ahead-of-time pipelines from your files, as
 `tools/launch.ps1` does on Windows, then starts

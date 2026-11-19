@@ -124,6 +124,20 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "zip=$($result.release)" >> $env:GITHUB_OUTPUT
           "sha256=$($result.sha256)" >> $env:GITHUB_OUTPUT
+      # The Apple silicon package (docs/MACOS.md): the tagged source with LF
+      # endings; its tools/lavender_mac.py setup fetches the pinned ShiftGlue
+      # and builds on the player's Mac.
+      - name: Package for macOS
+        id: package-macos
+        shell: bash
+        run: |
+          version='${{ steps.package.outputs.version }}'
+          name="LavenderShift-${version#v}-macos-arm64"
+          mkdir -p out/release
+          git -c core.autocrlf=false archive --format=tar.gz --prefix="$name/" -o "out/release/$name.tar.gz" HEAD
+          (cd out/release && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+          echo "tarball=out/release/$name.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(cut -d' ' -f1 "out/release/$name.tar.gz.sha256")" >> "$GITHUB_OUTPUT"
       # A manual run (workflow_dispatch) is a dry run: it builds the prebuilt
       # assets and the launcher ZIP as artifacts, and drafts nothing.
       - name: Draft release
@@ -136,5 +150,6 @@ jobs:
           # The prebuilt assets the payload pins; their .json sidecars stay out.
           $assets = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'prebuilt') -File -ErrorAction SilentlyContinue |
             Where-Object Extension -ne '.json' | ForEach-Object FullName)
-          $notes = "SHA-256 of $([IO.Path]::GetFileName($zip)): ${{ steps.package.outputs.sha256 }}`n`nYou need your own Forza Horizon 2 USA disc image and title update v2, and a CPU with AVX2 (Intel Haswell, AMD Zen or newer). See the README for setup."
-          gh release create '${{ steps.package.outputs.version }}' $zip "$zip.sha256" @assets --draft --title 'Lavender Shift ${{ steps.package.outputs.version }}' --notes $notes
+          $mac = '${{ steps.package-macos.outputs.tarball }}'
+          $notes = "SHA-256 of $([IO.Path]::GetFileName($zip)): ${{ steps.package.outputs.sha256 }}`nSHA-256 of $([IO.Path]::GetFileName($mac)): ${{ steps.package-macos.outputs.sha256 }}`n`nYou need your own Forza Horizon 2 USA disc image and title update v2. Windows: a CPU with AVX2 (Intel Haswell, AMD Zen or newer); see the README for setup. Mac with Apple silicon: see docs/MACOS.md (Terminal setup)."
+          gh release create '${{ steps.package.outputs.version }}' $zip "$zip.sha256" $mac "$mac.sha256" @assets --draft --title 'Lavender Shift ${{ steps.package.outputs.version }}' --notes $notes

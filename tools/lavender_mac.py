@@ -5,13 +5,19 @@ tools/launch.ps1, after Pinyon Shift's macOS setup. The game is translated
 from the player's own disc and built on their Mac; nothing here downloads
 game data or publishes a build.
 
+  python3 tools/lavender_mac.py setup --iso DISC.iso --update TU.zip
+                                                     everything below, from the player's files
   python3 tools/lavender_mac.py doctor                check what a build needs
   python3 tools/lavender_mac.py build [--step STEP]   generator, codegen, game (all)
   python3 tools/lavender_mac.py shaders [--force]     the ahead-of-time pipelines
   python3 tools/lavender_mac.py run [-- game flags]   prepare the pipelines and start
 
-The disc and title update are extracted first with tools/lavender_setup.py
-(disc, update, codegen), as on Windows. Logs go to .local/logs.
+setup fetches ShiftGlue at the pinned revision (config/release-toolchain.json)
+when this folder is not a git checkout, extracts the disc and title update
+with tools/lavender_setup.py (only the supported files), translates, builds
+and prepares the pipelines; each step skips work already done, so it also
+updates a folder after a newer release is extracted over it. Logs go to
+.local/logs.
 """
 
 from __future__ import annotations
@@ -78,7 +84,7 @@ def run_logged(step: str, command: list, cwd: Path = ROOT) -> None:
     print(f"{step}: done in {seconds:.0f} s", flush=True)
 
 
-def doctor_problems() -> list[str]:
+def doctor_problems(require_sdk: bool = True) -> list[str]:
     problems = []
     if platform.system() != "Darwin":
         problems.append("this script is for macOS; on Windows use tools/build.ps1")
@@ -90,14 +96,14 @@ def doctor_problems() -> list[str]:
             problems.append(f"macOS 13.3 or newer is needed (this is {platform.mac_ver()[0]})")
     if subprocess.run(["xcode-select", "-p"], capture_output=True).returncode:
         problems.append("the Command Line Tools are missing: run xcode-select --install")
-    for name in ("cmake", "ninja"):
+    for name in ("cmake", "ninja", "git"):
         if not tool(name):
             problems.append(f"{name} is missing: brew install {name}")
     # 3.9 is the Command Line Tools' python3.
     if sys.version_info < (3, 9):
         problems.append(f"Python 3.9 or newer is needed (this is {platform.python_version()})")
-    if not (SDK / "CMakeLists.txt").is_file():
-        problems.append("thirdparty/shiftglue-sdk is empty: git submodule update --init --recursive")
+    if require_sdk and not (SDK / "CMakeLists.txt").is_file():
+        problems.append("thirdparty/shiftglue-sdk is empty: python3 tools/lavender_mac.py setup")
     return problems
 
 
@@ -224,6 +230,78 @@ def shaders(args: argparse.Namespace) -> int:
     return 0
 
 
+def git(*args, cwd: Path = ROOT) -> str:
+    result = subprocess.run(["git", *[str(a) for a in args]], cwd=cwd, env=environment(),
+                            capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def prepare_sdk() -> None:
+    """tools/prepare-rexglue.ps1: the submodule in a checkout, otherwise a clone
+    of the pinned revision with its submodules."""
+    if (ROOT / ".git").exists():
+        if not (SDK / "CMakeLists.txt").is_file():
+            run_logged("rexglue-prepare", ["git", "submodule", "update", "--init", "--recursive",
+                                           "--jobs", "8", "--", "thirdparty/shiftglue-sdk"])
+        return
+    pin = json.loads((ROOT / "config" / "release-toolchain.json").read_text(encoding="utf-8"))
+    repository, revision = pin["rexglue"]["repository"], pin["rexglue"]["revision"]
+    marker = SDK.parent / (SDK.name + ".prepared")
+    if marker.is_file() and marker.read_text(encoding="utf-8").strip() == revision \
+            and git("rev-parse", "HEAD", cwd=SDK) == revision:
+        print(f"ShiftGlue {revision[:12]} is prepared.")
+        return
+    marker.unlink(missing_ok=True)
+    if not (SDK / ".git").exists():
+        if SDK.exists():
+            shutil.rmtree(SDK)
+        run_logged("rexglue-clone", ["git", "clone", "--no-checkout", "--no-tags", repository, SDK])
+    elif git("status", "--porcelain", "--ignore-submodules=dirty", cwd=SDK):
+        raise MacError(f"the ShiftGlue folder has local changes: {SDK}")
+    run_logged("rexglue-fetch", ["git", "-C", SDK, "fetch", "--depth", "1", "origin", revision])
+    run_logged("rexglue-checkout", ["git", "-C", SDK, "checkout", "--detach", revision])
+    run_logged("rexglue-submodules", ["git", "-C", SDK, "submodule", "update", "--init",
+                                      "--recursive", "--force", "--jobs", "8"])
+    if git("rev-parse", "HEAD", cwd=SDK) != revision:
+        raise MacError("ShiftGlue is not at the pinned revision after the checkout")
+    marker.write_text(revision + "\n", encoding="utf-8")
+
+
+def extracted_from(name: str, source: Path) -> bool:
+    catalog = GAME / f"{name}-catalog.json"
+    try:
+        return json.loads(catalog.read_text(encoding="utf-8")).get("source") == source.name
+    except (OSError, ValueError):
+        return False
+
+
+def setup(args: argparse.Namespace) -> int:
+    problems = doctor_problems(require_sdk=False)
+    if problems:
+        for problem in problems:
+            print(f"missing: {problem}", file=sys.stderr)
+        return 1
+    if running():
+        raise MacError("quit lavender_shift first")
+    steps = [("disc", args.iso, "disc/default.xex"), ("update", args.update, "update/default.xexp")]
+    for name, source, marker in steps:
+        if source is None and not (GAME / marker).is_file():
+            raise MacError(f"pass --{'iso' if name == 'disc' else 'update'}: the {name} is not extracted yet")
+        if source is not None and not source.is_file():
+            raise MacError(f"{source} does not exist")
+    prepare_sdk()
+    setup_script = [sys.executable, "-I", ROOT / "tools" / "lavender_setup.py"]
+    for name, source, marker in steps:
+        if source is not None and not ((GAME / marker).is_file() and extracted_from(name, source)):
+            run_logged(f"setup-{name}", setup_script + [name, source.resolve()])
+    run_logged("setup-codegen", setup_script + ["codegen"])
+    build_generator()
+    build_game()
+    prepare_shaders(USER)
+    print("Ready: python3 tools/lavender_mac.py run")
+    return 0
+
+
 def running() -> bool:
     # The game claims its user folder only on Windows (src/install_paths.cpp).
     return subprocess.run(["pgrep", "-x", "lavender_shift"], capture_output=True).returncode == 0
@@ -246,6 +324,10 @@ def run_game(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     commands = parser.add_subparsers(dest="command", required=True)
+    command = commands.add_parser("setup", help="prepare, extract, translate and build")
+    command.add_argument("--iso", type=Path, help="the Forza Horizon 2 USA disc image")
+    command.add_argument("--update", type=Path, help="the title update v2 package")
+    command.set_defaults(handler=setup)
     commands.add_parser("doctor").set_defaults(handler=doctor)
     command = commands.add_parser("build")
     command.add_argument("--step", choices=("generator", "codegen", "game", "all"), default="all")
